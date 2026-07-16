@@ -106,6 +106,7 @@ io.on("connection", (socket) => {
 
   socket.on("startCeremony", action((room) => room.startCeremony(socket.data.key)));
   socket.on("startRound", action((room) => room.startRound(socket.data.key)));
+  socket.on("cutDeck", action((room, p) => room.cutDeck(socket.data.key, p.pos)));
   socket.on("placeBet", action((room, p) => room.placeBet(socket.data.key, p.house, p.amount)));
   socket.on("endBettingTurn", action((room) => room.endBettingTurn(socket.data.key)));
   socket.on("decideBank", action((room, p) => room.decideBank(socket.data.key, p.takeIt)));

@@ -20,6 +20,7 @@ export default function GameTable({ game }: { game: GameState }) {
   const [peeked, setPeeked] = useState<Record<string, Card>>({});
   const [betInput, setBetInput] = useState("");
   const [betHouse, setBetHouse] = useState<number | null>(null);
+  const [cutPos, setCutPos] = useState(20);
   const [toast, setToast] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -187,6 +188,45 @@ export default function GameTable({ game }: { game: GameState }) {
           : <Msg dim>La banque va distribuer...</Msg>)}
       </CenterBox>
     );
+  } else if (game.phase === "cutting") {
+    const isCutter = myIdx === game.cutterIdx;
+    center = (
+      <CenterBox title={`✂️ Coupe — ${game.players[game.cutterIdx!]?.name}`}>
+        {isCutter ? (
+          <div>
+            <Msg>Choisis où couper le paquet</Msg>
+            {/* Pile visuelle : 40 segments, le marqueur doré sépare */}
+            <div className="flex justify-center items-end gap-px my-3" style={{ height: 44 }}>
+              {Array.from({ length: 40 }, (_, i) => (
+                <div key={i} style={{
+                  width: 5, borderRadius: 1,
+                  height: 22 + Math.sin(i * 0.4) * 3,
+                  background: i < cutPos ? "#8d2836" : "#5a1620",
+                  marginRight: i === cutPos - 1 ? 7 : 0,
+                  boxShadow: i === cutPos - 1 ? "3px 0 0 #e8c96a, 5px 0 8px rgba(232,201,106,.6)" : "none",
+                  transition: "all .15s",
+                }} />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 justify-center mb-2">
+              <span className="text-emerald-500/70 text-[10px]">5</span>
+              <input type="range" min={5} max={35} value={cutPos}
+                onChange={(e) => setCutPos(Number(e.target.value))}
+                className="w-40" style={{ accentColor: "#e8c96a" }} />
+              <span className="text-emerald-500/70 text-[10px]">35</span>
+            </div>
+            <div className="text-[#f0e6c8] text-[12.5px] font-display italic mb-1">
+              Coupe à la <b className="text-gold not-italic">{cutPos}</b>ᵉ carte
+            </div>
+            <GoldBtn small onClick={() => { sfxFlip(); emit("cutDeck", { pos: cutPos }); }}>
+              ✂️ Couper le paquet
+            </GoldBtn>
+          </div>
+        ) : (
+          <Msg dim>{game.players[game.cutterIdx!]?.name} est en train de couper le paquet...</Msg>
+        )}
+      </CenterBox>
+    );
   } else if (game.phase === "betting") {
     const isMyTurn = game.betIdx === myIdx;
     center = (
@@ -323,7 +363,7 @@ export default function GameTable({ game }: { game: GameState }) {
         {game.players.map((p, i) => {
           const pos = seatPosition((i - myIdx + n) % n, n, W, H);
           const isB = i === game.bankIdx;
-          const isHi = game.phase === "betting" && i === game.betIdx;
+          const isHi = (game.phase === "betting" && i === game.betIdx) || (game.phase === "cutting" && i === game.cutterIdx);
           const r = (allRevealed || isRevealed(i)) ? game.results?.[i] : null;
           const hand = game.hands?.[i] || [];
           const houseBets = game.bets.filter((b) => b.house === i);

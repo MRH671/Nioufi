@@ -10,7 +10,7 @@ export type Bet = { bettor: number; house: number; amount: number };
 
 export type Result = { score: number; delta: number; win: boolean; role: "bank" | "player" };
 
-export type Phase = "lobby" | "ceremony" | "betting" | "pre_reveal" | "revealing" | "between_rounds";
+export type Phase = "lobby" | "ceremony" | "cutting" | "betting" | "pre_reveal" | "revealing" | "between_rounds";
 
 export type GameState = {
   code: string;

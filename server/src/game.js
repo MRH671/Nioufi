@@ -98,7 +98,7 @@ class Room {
     return { ok: true };
   }
 
-  // ── Nouvelle manche : 1 carte cachée à chacun ──
+  // ── Nouvelle manche : d'abord la coupe, puis la distribution ──
   startRound(key) {
     if (this.idx(key) !== this.bankIdx) return { ok: false, error: "Seule la banque distribue." };
     if (!["ceremony", "between_rounds"].includes(this.phase)) return { ok: false, error: "Pas maintenant." };
@@ -108,18 +108,45 @@ class Room {
     if (solvent === 0) return { ok: false, error: "Plus aucun joueur n'a de jetons — la banque a tout raflé ! 🏆" };
 
     this.deck = shuffle(buildDeck());
+    this.hands = null;
+    this.bets = [];
+    this.betIdx = -1;
+    this.results = null;
+    this.nineWinner = -1;
+    this.revealAt = null;
+    this.phase = "cutting";
+    this.pushFeed(`✂️ ${this.players[this.cutterIdx].name} doit couper le paquet`);
+    return { ok: true };
+  }
+
+  // ── Coupe du paquet par le coupeur ──
+  cutDeck(key, pos) {
+    if (this.phase !== "cutting") return { ok: false, error: "Pas maintenant." };
+    if (this.idx(key) !== this.cutterIdx) return { ok: false, error: "Ce n'est pas à toi de couper." };
+    pos = Math.floor(Number(pos));
+    if (!pos || pos < 5 || pos > 35) return { ok: false, error: "Coupe entre la 5e et la 35e carte." };
+
+    // Coupe réelle : le dessous passe au-dessus
+    this.deck = this.deck.slice(pos).concat(this.deck.slice(0, pos));
+    this.pushFeed(`✂️ ${this.players[this.cutterIdx].name} coupe le paquet à la ${pos}e carte`);
+
+    // Distribution : 1 carte cachée à chacun, banque en dernier
     const order = this.dealOrder();
     this.hands = Array(this.n()).fill(null).map(() => []);
     order.forEach((pIdx, step) => this.hands[pIdx].push(this.deck[step]));
     this._deckPos = this.n();
-    this.bets = [];
     this.betIdx = this.firstBettor();
-    this.results = null;
-    this.nineWinner = -1;
-    this.revealAt = null;
     this.phase = "betting";
     this.pushFeed(`🂠 ${this.players[this.bankIdx].name} distribue une carte à chacun`);
     return { ok: true };
+  }
+
+  /** Prochain coupeur : rotation en sautant la banque */
+  advanceCutter() {
+    for (let k = 1; k <= this.n(); k++) {
+      const i = (this.cutterIdx + k) % this.n();
+      if (i !== this.bankIdx) { this.cutterIdx = i; return; }
+    }
   }
 
   dealOrder() {
@@ -262,7 +289,20 @@ class Room {
       b = (this.bankIdx + 1) % this.n();
       this.pushFeed(`💸 La banque est ruinée ! ${this.players[b].name} reprend la banque.`);
     }
+
+    // Qui coupe la prochaine manche ?
+    if (b !== this.bankIdx) {
+      // La banque change → l'ancienne banque coupe
+      this.cutterIdx = this.bankIdx;
+      this.pushFeed(`✂️ ${this.players[this.bankIdx].name} (ancienne banque) coupera la prochaine manche`);
+    } else {
+      // Rotation normale : chacun son tour, en sautant la banque
+      this.advanceCutter();
+    }
+
     this.bankIdx = b;
+    // Sécurité : le coupeur ne peut pas être la nouvelle banque (hors cas cérémonie double As)
+    if (this.cutterIdx === this.bankIdx) this.advanceCutter();
     this.nineWinner = -1;
     this.phase = "between_rounds";
     return { ok: true };
