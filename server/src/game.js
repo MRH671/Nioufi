@@ -35,11 +35,11 @@ function randCode() {
 
 // ─── Room ─────────────────────────────────────────────────────────────────────
 class Room {
-  constructor(hostKey, hostName) {
+  constructor(hostKey, hostName, hostCoins = 100, hostUserId = null) {
     this.code = randCode();
     this.hostKey = hostKey;
     this.phase = "lobby"; // lobby | ceremony | betting | pre_reveal | revealing | between_rounds
-    this.players = [{ key: hostKey, name: hostName, coins: 100, connected: true }];
+    this.players = [{ key: hostKey, name: hostName, coins: hostCoins, connected: true, userId: hostUserId }];
     this.bankIdx = null;
     this.cutterIdx = null;
     this.ceremony = null; // { steps: [{card,pIdx,asNum}], startedAt }
@@ -62,12 +62,12 @@ class Room {
   }
 
   // ── Rejoindre ──
-  join(key, name) {
+  join(key, name, coins = 100, userId = null) {
     const existing = this.idx(key);
     if (existing !== -1) { this.players[existing].connected = true; return { ok: true, rejoined: true }; }
     if (this.phase !== "lobby") return { ok: false, error: "La partie a déjà commencé." };
     if (this.n() >= 13) return { ok: false, error: "Table pleine (13 max)." };
-    this.players.push({ key, name, coins: 100, connected: true });
+    this.players.push({ key, name, coins, connected: true, userId });
     this.pushFeed(`👋 ${name} rejoint la table`);
     return { ok: true };
   }
@@ -162,6 +162,13 @@ class Room {
     if (!amount || amount < 1) return { ok: false, error: "Mise invalide." };
     const avail = this.players[me].coins - this.committed(me);
     if (amount > avail) return { ok: false, error: `Tu n'as que ${avail} jetons dispo.` };
+
+    // La banque doit pouvoir couvrir TOUTES les mises — jamais de solde négatif.
+    const totalBets = this.bets.reduce((s, b) => s + b.amount, 0);
+    const bankAvail = this.players[this.bankIdx].coins - totalBets;
+    if (amount > bankAvail) {
+      return { ok: false, error: bankAvail > 0 ? `La banque ne peut couvrir que ${bankAvail} jetons de plus.` : "La banque ne peut plus rien couvrir." };
+    }
 
     this.bets.push({ bettor: me, house, amount });
     this.pushFeed(`💰 ${this.players[me].name} mise ${amount} sur ${house === me ? "sa maison" : "la maison de " + this.players[house].name}`);

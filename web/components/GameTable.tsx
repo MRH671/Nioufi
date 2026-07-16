@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GameState, Ack, Card } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
 import PlayingCard from "./PlayingCard";
+import { sfxDeal, sfxFlip, sfxChip, sfxWin, sfxLose, sfxNioufi, setMuted, isMuted } from "@/lib/sounds";
 
 // ─── Position des sièges (toi toujours en bas) ────────────────────────────────
 function seatPosition(index: number, total: number, W: number, H: number) {
@@ -70,6 +71,42 @@ export default function GameTable({ game }: { game: GameState }) {
   // Nettoyage des peeks quand on change de phase
   useEffect(() => { setPeeked({}); }, [game.phase]);
 
+  // ── Sons ──
+  const [soundOn, setSoundOn] = useState(true);
+  const toggleSound = () => { setMuted(soundOn); setSoundOn(!soundOn); };
+
+  // Carte distribuée (nombre total de cartes qui augmente) + cérémonie
+  const totalCards = (game.hands || []).reduce((s, h) => s + h.length, 0);
+  const prevCards = useRef(0);
+  useEffect(() => {
+    if (totalCards > prevCards.current && prevCards.current >= 0) sfxDeal();
+    prevCards.current = totalCards;
+  }, [totalCards]);
+  useEffect(() => { if (ceremonyStep >= 0) sfxDeal(); }, [ceremonyStep]);
+
+  // Retournement : un flip par étape de révélation
+  useEffect(() => { if (game.phase === "revealing" && revealStep > 0 && revealStep <= n) sfxFlip(); }, [revealStep, game.phase, n]);
+
+  // Mise posée
+  const prevBets = useRef(0);
+  useEffect(() => {
+    if (game.bets.length > prevBets.current) sfxChip();
+    prevBets.current = game.bets.length;
+  }, [game.bets.length]);
+
+  // Fin de manche : son selon MON résultat
+  const playedResult = useRef(false);
+  useEffect(() => {
+    if (game.phase !== "revealing") { playedResult.current = false; return; }
+    if (!playedResult.current && revealStep >= n && game.results) {
+      playedResult.current = true;
+      const mine = game.results[myIdx];
+      if (mine?.score === 9) sfxNioufi();
+      else if (mine?.role === "bank" ? mine.delta >= 0 : mine?.win) sfxWin();
+      else sfxLose();
+    }
+  }, [revealStep, game.phase, game.results, myIdx, n]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     timers.current.push(setTimeout(() => setToast(""), 2500));
@@ -82,6 +119,7 @@ export default function GameTable({ game }: { game: GameState }) {
   const peek = (playerIdx: number, cardIdx: number) => {
     socket.emit("peek", { playerIdx, cardIdx }, (r: Ack) => {
       if (!r.ok) { if (r.error) showToast(r.error); return; }
+      sfxFlip();
       const key = `${playerIdx}-${cardIdx}`;
       setPeeked((prev) => ({ ...prev, [key]: r.card! }));
       timers.current.push(setTimeout(() => {
@@ -252,9 +290,14 @@ export default function GameTable({ game }: { game: GameState }) {
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 pt-2">
         <span className="font-display text-[22px] text-gold">Nioufi</span>
-        <span className="text-emerald-500/80 text-xs">
-          Table <b className="text-gold">{game.code}</b> · <b className="text-gold">{game.players[myIdx]?.name}</b>{isBank ? " 🏦" : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-emerald-500/80 text-xs">
+            Table <b className="text-gold">{game.code}</b> · <b className="text-gold">{game.players[myIdx]?.name}</b>{isBank ? " 🏦" : ""}
+          </span>
+          <button onClick={toggleSound} className="text-base leading-none px-1" title={soundOn ? "Couper le son" : "Activer le son"}>
+            {soundOn ? "🔊" : "🔇"}
+          </button>
+        </div>
       </div>
 
       {toast && (
