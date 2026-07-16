@@ -20,23 +20,76 @@ async function initDb() {
     )
   `);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_bonus_at TIMESTAMPTZ`);
-  console.log("🗄️  PostgreSQL prêt (table users).");
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_day INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      delta INTEGER NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  console.log("🗄️  PostgreSQL prêt (tables users, history).");
 }
 
-const DAILY_BONUS = 50;
+/** Enregistre un gain/perte de manche */
+async function addHistory(userId, delta) {
+  if (!pool || !delta) return;
+  await pool.query("INSERT INTO history (user_id, delta) VALUES ($1, $2)", [userId, delta]);
+}
 
-/** Tente de créditer le bonus quotidien (dispo toutes les 20h).
- *  Renvoie { granted, amount, balance } */
-async function claimDailyBonus(id) {
+/** Dernières manches + bilan total */
+async function getHistory(userId) {
+  if (!pool) return { entries: [], total: 0 };
+  const entries = await pool.query(
+    "SELECT delta, created_at FROM history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50",
+    [userId]
+  );
+  const total = await pool.query(
+    "SELECT COALESCE(SUM(delta), 0) AS total FROM history WHERE user_id = $1",
+    [userId]
+  );
+  return {
+    entries: entries.rows.map((r) => ({ delta: r.delta, at: r.created_at })),
+    total: Number(total.rows[0].total),
+  };
+}
+
+// Récompenses du calendrier : jour 1 → jour 7, puis retour au jour 1
+const BONUS_REWARDS = [50, 75, 100, 150, 200, 300, 500];
+
+/** État du bonus : peut-il être réclamé, et quel jour serait-ce ? */
+async function bonusStatus(id) {
+  if (!pool) return { available: false };
+  const r = await pool.query("SELECT last_bonus_at, streak_day FROM users WHERE id = $1", [id]);
+  if (!r.rows[0]) return { available: false };
+  const { last_bonus_at, streak_day } = r.rows[0];
+  const now = Date.now();
+  const last = last_bonus_at ? new Date(last_bonus_at).getTime() : null;
+  const available = !last || now - last > 20 * 3600 * 1000;
+  // Série cassée si plus de 48h sans réclamer → retour au jour 1
+  const day = !last || now - last > 48 * 3600 * 1000 ? 1 : (streak_day % 7) + 1;
+  return { available, day, rewards: BONUS_REWARDS };
+}
+
+/** Réclame le bonus du jour (atomique — impossible de doubler) */
+async function claimBonus(id) {
   if (!pool) return { granted: false };
   const r = await pool.query(
-    `UPDATE users SET balance = balance + $2, last_bonus_at = NOW()
+    `UPDATE users SET
+       streak_day = CASE WHEN last_bonus_at IS NULL OR last_bonus_at < NOW() - INTERVAL '48 hours'
+                         THEN 1 ELSE (streak_day % 7) + 1 END,
+       balance = balance + (ARRAY[50,75,100,150,200,300,500])[
+         CASE WHEN last_bonus_at IS NULL OR last_bonus_at < NOW() - INTERVAL '48 hours'
+              THEN 1 ELSE (streak_day % 7) + 1 END],
+       last_bonus_at = NOW()
      WHERE id = $1 AND (last_bonus_at IS NULL OR last_bonus_at < NOW() - INTERVAL '20 hours')
-     RETURNING balance`,
-    [id, DAILY_BONUS]
+     RETURNING balance, streak_day`,
+    [id]
   );
   if (r.rows.length === 0) return { granted: false };
-  return { granted: true, amount: DAILY_BONUS, balance: r.rows[0].balance };
+  const { balance, streak_day } = r.rows[0];
+  return { granted: true, day: streak_day, amount: BONUS_REWARDS[streak_day - 1], balance };
 }
 
 async function getUser(id) {
@@ -64,4 +117,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, claimDailyBonus };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory };

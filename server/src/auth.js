@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser, claimDailyBonus } = require("./db");
+const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory } = require("./db");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -79,13 +79,8 @@ router.post("/login", async (req, res) => {
   if (!user || !(await bcrypt.compare(password || "", user.password_hash)))
     return res.status(401).json({ error: "Pseudo ou mot de passe incorrect." });
 
-  const bonus = await claimDailyBonus(user.id);
-  res.json({
-    token: sign(user),
-    username: user.username,
-    balance: bonus.granted ? bonus.balance : user.balance,
-    bonus: bonus.granted ? bonus.amount : 0,
-  });
+  const bonus = await bonusStatus(user.id);
+  res.json({ token: sign(user), username: user.username, balance: user.balance, bonus });
 });
 
 router.get("/me", async (req, res) => {
@@ -95,12 +90,26 @@ router.get("/me", async (req, res) => {
   const user = await getUser(payload.uid);
   if (!user) return res.status(404).json({ error: "Compte introuvable." });
 
-  const bonus = await claimDailyBonus(user.id);
-  res.json({
-    username: user.username,
-    balance: bonus.granted ? bonus.balance : user.balance,
-    bonus: bonus.granted ? bonus.amount : 0,
-  });
+  const bonus = await bonusStatus(user.id);
+  res.json({ username: user.username, balance: user.balance, bonus });
+});
+
+// ── Réclamer le bonus quotidien ──
+router.post("/bonus/claim", async (req, res) => {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: "Token invalide." });
+  const r = await claimBonus(payload.uid);
+  if (!r.granted) return res.status(409).json({ error: "Bonus déjà réclamé, reviens plus tard !" });
+  res.json(r);
+});
+
+// ── Historique des gains/pertes ──
+router.get("/history", async (req, res) => {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: "Token invalide." });
+  res.json(await getHistory(payload.uid));
 });
 
 module.exports = { router, verifyToken };

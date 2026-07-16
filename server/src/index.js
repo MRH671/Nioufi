@@ -7,7 +7,7 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const { Room } = require("./game");
-const { initDb, getUser, setBalance } = require("./db");
+const { initDb, getUser, setBalance, addHistory } = require("./db");
 const { router: authRouter, verifyToken } = require("./auth");
 
 const PORT = process.env.PORT || 5001;
@@ -119,6 +119,10 @@ io.on("connection", (socket) => {
     if (r.ok) {
       broadcast(room);
       persistBalances(room); // async, pas bloquant
+      // Historique des gains/pertes pour les comptes connectés
+      room.players.forEach((p, i) => {
+        if (p.userId && room.results?.[i]?.delta) addHistory(p.userId, room.results[i].delta);
+      });
     }
   });
 

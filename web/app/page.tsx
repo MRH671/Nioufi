@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import type { GameState, Ack } from "@/lib/types";
 import { getSocket, getPlayerKey } from "@/lib/socket";
 import GameTable from "@/components/GameTable";
+import BonusModal, { type BonusInfo } from "@/components/BonusModal";
+import HistoryModal from "@/components/HistoryModal";
+import TutorialModal from "@/components/TutorialModal";
 
 const API = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
@@ -14,7 +17,9 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
-  const [bonusMsg, setBonusMsg] = useState("");
+  const [bonusInfo, setBonusInfo] = useState<BonusInfo | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,7 +46,7 @@ export default function Home() {
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d) => {
           setUsername(d.username); setBalance(d.balance);
-          if (d.bonus > 0) setBonusMsg(`🎁 Bonus quotidien : +${d.bonus} jetons !`);
+          if (d.bonus?.available) setBonusInfo(d.bonus);
         })
         .catch(() => { localStorage.removeItem("nioufi_token"); setToken(null); });
     }
@@ -68,11 +73,20 @@ export default function Home() {
       setBalance(d.balance);
       setUsername(d.username);
       setPassword("");
-      if (d.bonus > 0) setBonusMsg(`🎁 Bonus quotidien : +${d.bonus} jetons !`);
+      if (d.bonus?.available) setBonusInfo(d.bonus);
       localStorage.setItem("nioufi_token", d.token);
     } catch {
       setErr("Serveur injoignable.");
     } finally { setBusy(false); }
+  };
+
+  const openBonus = async () => {
+    if (!token) return;
+    try {
+      const r = await fetch(`${API}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      if (r.ok && d.bonus) { setBalance(d.balance); setBonusInfo(d.bonus); }
+    } catch { /* silencieux */ }
   };
 
   const logout = () => {
@@ -151,10 +165,26 @@ export default function Home() {
   // ── En jeu ──
   if (game) return <GameTable game={game} />;
 
+  // ── Modals ──
+  const modals = (
+    <>
+      {bonusInfo && token && (
+        <BonusModal bonus={bonusInfo} api={API} token={token}
+          onClaimed={(b) => setBalance(b)}
+          onClose={() => setBonusInfo(null)} />
+      )}
+      {showHistory && token && (
+        <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
+      )}
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+    </>
+  );
+
   // ── Accueil ──
   const inputCls = "w-full rounded-xl px-3 py-2.5 bg-black/35 border border-gold/25 text-white text-[15px] outline-none";
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-5">
+      {modals}
       <div className="text-center mb-7">
         <div className="font-display text-gold" style={{ fontSize: "clamp(3rem,11vw,4.5rem)", textShadow: "0 0 30px rgba(232,201,106,.35)" }}>
           Nioufi
@@ -215,11 +245,16 @@ export default function Home() {
               </div>
               <button onClick={logout} className="text-white/50 text-[12px] underline">Déconnexion</button>
             </div>
-            {bonusMsg && (
-              <div className="mt-2 text-center text-[13px] font-bold text-gold rounded-xl py-2 px-3 bg-gold/15 border border-gold/40 animate-pulse">
-                {bonusMsg}
-              </div>
-            )}
+            <div className="flex gap-2 mt-2">
+              <button onClick={openBonus}
+                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                🎁 Bonus
+              </button>
+              <button onClick={() => setShowHistory(true)}
+                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                📜 Historique
+              </button>
+            </div>
           </>
         )}
 
@@ -248,7 +283,12 @@ export default function Home() {
 
         {err && <div className="text-red-400 text-[13px] mt-3 text-center">{err}</div>}
 
-        <div className={`mt-4 text-center text-[11px] rounded-lg py-1.5 px-2.5 bg-black/25
+        <button onClick={() => setShowTutorial(true)}
+          className="w-full mt-4 py-2 rounded-xl text-[12.5px] font-bold text-emerald-100 bg-white/5 border border-white/15">
+          ❓ Tutoriel — apprendre les règles
+        </button>
+
+        <div className={`mt-3 text-center text-[11px] rounded-lg py-1.5 px-2.5 bg-black/25
           ${connected ? "text-green-400" : "text-yellow-500"}`}>
           {connected ? "✓ Connecté au serveur" : "Connexion au serveur..."}
         </div>
