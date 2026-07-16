@@ -2,7 +2,8 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory } = require("./db");
+const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList } = require("./db");
+const presence = require("./presence");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -110,6 +111,47 @@ router.get("/history", async (req, res) => {
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: "Token invalide." });
   res.json(await getHistory(payload.uid));
+});
+
+// ── Amis ──
+function requireAuth(req, res) {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const payload = verifyToken(token);
+  if (!payload) { res.status(401).json({ error: "Token invalide." }); return null; }
+  return payload;
+}
+
+router.get("/friends", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const list = await friendList(p.uid);
+  res.json({
+    friends: list.friends.map((f) => ({ ...f, online: presence.isOnline(f.id) })),
+    incoming: list.incoming,
+    sent: list.sent,
+  });
+});
+
+router.post("/friends/request", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const r = await friendRequest(p.uid, (req.body?.username || "").trim());
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/friends/respond", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const r = await friendRespond(p.uid, req.body?.requestId, !!req.body?.accept);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/friends/remove", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  res.json(await friendRemove(p.uid, req.body?.userId));
 });
 
 module.exports = { router, verifyToken };

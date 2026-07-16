@@ -7,7 +7,8 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const { Room } = require("./game");
-const { initDb, getUser, setBalance, addHistory } = require("./db");
+const { initDb, getUser, setBalance, addHistory, areFriends } = require("./db");
+const presence = require("./presence");
 const { router: authRouter, verifyToken } = require("./auth");
 
 const PORT = process.env.PORT || 5001;
@@ -69,6 +70,34 @@ async function persistBalances(room) {
 }
 
 io.on("connection", (socket) => {
+  // ── Identification (présence en ligne + invitations) ──
+  socket.on("identify", ({ token }) => {
+    const p = token ? verifyToken(token) : null;
+    if (p && !socket.data.userId) {
+      socket.data.userId = p.uid;
+      socket.data.username = p.username;
+      presence.add(p.uid);
+    }
+  });
+
+  // ── Inviter un ami à sa table (depuis le lobby) ──
+  socket.on("inviteFriend", async ({ friendId }, cb) => {
+    const room = rooms.get(socket.data.code);
+    if (!room || room.phase !== "lobby") return cb?.({ ok: false, error: "Ouvre d'abord une table." });
+    if (!socket.data.userId) return cb?.({ ok: false, error: "Connecte-toi pour inviter." });
+    if (!(await areFriends(socket.data.userId, friendId)))
+      return cb?.({ ok: false, error: "Vous n'êtes pas amis." });
+
+    let delivered = false;
+    for (const [, s] of io.of("/").sockets) {
+      if (s.data.userId === friendId) {
+        s.emit("invite", { from: socket.data.username, code: room.code });
+        delivered = true;
+      }
+    }
+    cb?.(delivered ? { ok: true } : { ok: false, error: "Ton ami n'est pas en ligne." });
+  });
+
   socket.on("createRoom", async (payload, cb) => {
     const id = await resolveIdentity(payload || {});
     if (id.error) return cb?.({ ok: false, error: id.error });
@@ -136,6 +165,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    if (socket.data.userId) presence.remove(socket.data.userId);
     const room = rooms.get(socket.data.code);
     if (!room) return;
     const idx = room.idx(socket.data.key);

@@ -29,7 +29,97 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-  console.log("🗄️  PostgreSQL prêt (tables users, history).");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS friendships (
+      id SERIAL PRIMARY KEY,
+      requester INTEGER NOT NULL REFERENCES users(id),
+      addressee INTEGER NOT NULL REFERENCES users(id),
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(requester, addressee)
+    )
+  `);
+  console.log("🗄️  PostgreSQL prêt (tables users, history, friendships).");
+}
+
+// ─── Amis ─────────────────────────────────────────────────────────────────────
+
+/** Envoie une demande d'ami. Si l'autre nous avait déjà demandé → accepte direct. */
+async function friendRequest(fromUid, toUsername) {
+  const target = await getUserByName(toUsername);
+  if (!target) return { error: "Aucun joueur avec ce pseudo." };
+  if (target.id === fromUid) return { error: "Tu ne peux pas t'ajouter toi-même 😄" };
+
+  const existing = await pool.query(
+    `SELECT * FROM friendships WHERE (requester = $1 AND addressee = $2) OR (requester = $2 AND addressee = $1)`,
+    [fromUid, target.id]
+  );
+  if (existing.rows.length > 0) {
+    const f = existing.rows[0];
+    if (f.status === "accepted") return { error: "Vous êtes déjà amis." };
+    if (f.requester === fromUid) return { error: "Demande déjà envoyée." };
+    // L'autre nous avait demandé → on accepte
+    await pool.query("UPDATE friendships SET status = 'accepted' WHERE id = $1", [f.id]);
+    return { accepted: true, username: target.username };
+  }
+  await pool.query("INSERT INTO friendships (requester, addressee) VALUES ($1, $2)", [fromUid, target.id]);
+  return { sent: true, username: target.username };
+}
+
+/** Accepte ou refuse une demande reçue */
+async function friendRespond(uid, requestId, accept) {
+  const r = await pool.query(
+    "SELECT * FROM friendships WHERE id = $1 AND addressee = $2 AND status = 'pending'",
+    [requestId, uid]
+  );
+  if (!r.rows[0]) return { error: "Demande introuvable." };
+  if (accept) await pool.query("UPDATE friendships SET status = 'accepted' WHERE id = $1", [requestId]);
+  else await pool.query("DELETE FROM friendships WHERE id = $1", [requestId]);
+  return { ok: true };
+}
+
+/** Supprime un ami (ou annule une demande) */
+async function friendRemove(uid, otherUid) {
+  await pool.query(
+    `DELETE FROM friendships WHERE (requester = $1 AND addressee = $2) OR (requester = $2 AND addressee = $1)`,
+    [uid, otherUid]
+  );
+  return { ok: true };
+}
+
+/** Liste : amis acceptés, demandes reçues, demandes envoyées */
+async function friendList(uid) {
+  const friends = await pool.query(
+    `SELECT u.id, u.username FROM friendships f
+     JOIN users u ON u.id = CASE WHEN f.requester = $1 THEN f.addressee ELSE f.requester END
+     WHERE (f.requester = $1 OR f.addressee = $1) AND f.status = 'accepted'
+     ORDER BY u.username`,
+    [uid]
+  );
+  const incoming = await pool.query(
+    `SELECT f.id AS request_id, u.id, u.username FROM friendships f
+     JOIN users u ON u.id = f.requester
+     WHERE f.addressee = $1 AND f.status = 'pending'`,
+    [uid]
+  );
+  const sent = await pool.query(
+    `SELECT u.id, u.username FROM friendships f
+     JOIN users u ON u.id = f.addressee
+     WHERE f.requester = $1 AND f.status = 'pending'`,
+    [uid]
+  );
+  return { friends: friends.rows, incoming: incoming.rows, sent: sent.rows };
+}
+
+/** Les deux joueurs sont-ils amis ? */
+async function areFriends(a, b) {
+  if (!pool) return false;
+  const r = await pool.query(
+    `SELECT 1 FROM friendships WHERE status = 'accepted'
+     AND ((requester = $1 AND addressee = $2) OR (requester = $2 AND addressee = $1))`,
+    [a, b]
+  );
+  return r.rows.length > 0;
 }
 
 /** Enregistre un gain/perte de manche */
@@ -117,4 +207,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends };

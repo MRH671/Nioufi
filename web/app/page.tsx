@@ -6,6 +6,7 @@ import GameTable from "@/components/GameTable";
 import BonusModal, { type BonusInfo } from "@/components/BonusModal";
 import HistoryModal from "@/components/HistoryModal";
 import TutorialModal from "@/components/TutorialModal";
+import FriendsModal from "@/components/FriendsModal";
 
 const API = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
@@ -20,6 +21,8 @@ export default function Home() {
   const [bonusInfo, setBonusInfo] = useState<BonusInfo | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [invite, setInvite] = useState<{ from: string; code: string } | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,9 +33,11 @@ export default function Home() {
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
     const onState = (s: GameState) => setGame(s);
+    const onInvite = (inv: { from: string; code: string }) => setInvite(inv);
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("state", onState);
+    socket.on("invite", onInvite);
     if (socket.connected) setConnected(true);
 
     const savedName = localStorage.getItem("nioufi_name");
@@ -55,8 +60,19 @@ export default function Home() {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("state", onState);
+      socket.off("invite", onInvite);
     };
   }, []);
+
+  // S'identifier auprès du socket (présence en ligne + invitations)
+  useEffect(() => {
+    if (!token) return;
+    const socket = getSocket();
+    const identify = () => socket.emit("identify", { token });
+    identify();
+    socket.on("connect", identify);
+    return () => { socket.off("connect", identify); };
+  }, [token]);
 
   // ── Auth ──
   const authRequest = async (path: "register" | "login") => {
@@ -119,10 +135,59 @@ export default function Home() {
     });
   };
 
+  const acceptInvite = () => {
+    if (!invite) return;
+    const p = identityPayload();
+    if (!p) return;
+    getSocket().emit("joinRoom", { ...p, code: invite.code }, (r: Ack) => {
+      if (!r.ok) setErr(r.error || "Impossible de rejoindre.");
+      setInvite(null);
+    });
+  };
+
+  // ── Modals ──
+  const modals = (
+    <>
+      {bonusInfo && token && (
+        <BonusModal bonus={bonusInfo} api={API} token={token}
+          onClaimed={(b) => setBalance(b)}
+          onClose={() => setBonusInfo(null)} />
+      )}
+      {showHistory && token && (
+        <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
+      )}
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      {showFriends && token && (
+        <FriendsModal api={API} token={token} inviteMode={game?.phase === "lobby"}
+          onClose={() => setShowFriends(false)} />
+      )}
+      {invite && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[92%] max-w-[360px] rounded-2xl p-4 border border-gold/50"
+          style={{ background: "radial-gradient(ellipse at 50% 0%, #2a3f2e 0%, #101f14 90%)", boxShadow: "0 8px 30px rgba(0,0,0,.6)" }}>
+          <div className="text-gold font-bold text-[14px] mb-2">
+            🃏 {invite.from} t'invite à sa table !
+          </div>
+          <div className="flex gap-2">
+            <button onClick={acceptInvite}
+              className="flex-1 py-2 rounded-xl font-extrabold text-[13px] text-[#241d05]"
+              style={{ background: "linear-gradient(140deg,#caa32f,#eed780,#caa32f)" }}>
+              Rejoindre ({invite.code})
+            </button>
+            <button onClick={() => setInvite(null)}
+              className="px-3 py-2 rounded-xl font-bold text-[12px] text-white/50 bg-white/10 border border-white/15">
+              Ignorer
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   // ── Lobby ──
   if (game && game.phase === "lobby") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-5">
+        {modals}
         <div className="font-display text-[34px] text-gold mb-1">Table ouverte</div>
         <div className="text-emerald-500/90 mb-4 text-[13px]">Partage ce code avec les autres joueurs :</div>
         <div className="font-display text-[52px] font-extrabold text-gold-light tracking-[.35em] pl-9 pr-6 py-2.5 rounded-2xl bg-black/40 border-2 border-gold/40 mb-6"
@@ -156,6 +221,12 @@ export default function Home() {
               En attente que {game.players[0]?.name} lance la partie...
             </div>
           )}
+          {token && (
+            <button onClick={() => setShowFriends(true)}
+              className="w-full mt-3 py-2.5 rounded-xl text-[13px] font-bold text-gold bg-gold/10 border border-gold/30">
+              👥 Inviter des amis
+            </button>
+          )}
           {err && <div className="text-red-400 text-[13px] mt-3 text-center">{err}</div>}
         </div>
       </div>
@@ -164,21 +235,6 @@ export default function Home() {
 
   // ── En jeu ──
   if (game) return <GameTable game={game} />;
-
-  // ── Modals ──
-  const modals = (
-    <>
-      {bonusInfo && token && (
-        <BonusModal bonus={bonusInfo} api={API} token={token}
-          onClaimed={(b) => setBalance(b)}
-          onClose={() => setBonusInfo(null)} />
-      )}
-      {showHistory && token && (
-        <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
-      )}
-      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
-    </>
-  );
 
   // ── Accueil ──
   const inputCls = "w-full rounded-xl px-3 py-2.5 bg-black/35 border border-gold/25 text-white text-[15px] outline-none";
@@ -253,6 +309,10 @@ export default function Home() {
               <button onClick={() => setShowHistory(true)}
                 className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
                 📜 Historique
+              </button>
+              <button onClick={() => setShowFriends(true)}
+                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                👥 Amis
               </button>
             </div>
           </>
