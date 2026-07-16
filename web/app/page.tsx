@@ -14,6 +14,7 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [bonusMsg, setBonusMsg] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,10 @@ export default function Home() {
       // Recharge le profil
       fetch(`${API}/api/me`, { headers: { Authorization: `Bearer ${savedToken}` } })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d) => { setUsername(d.username); setBalance(d.balance); })
+        .then((d) => {
+          setUsername(d.username); setBalance(d.balance);
+          if (d.bonus > 0) setBonusMsg(`🎁 Bonus quotidien : +${d.bonus} jetons !`);
+        })
         .catch(() => { localStorage.removeItem("nioufi_token"); setToken(null); });
     }
 
@@ -64,6 +68,7 @@ export default function Home() {
       setBalance(d.balance);
       setUsername(d.username);
       setPassword("");
+      if (d.bonus > 0) setBonusMsg(`🎁 Bonus quotidien : +${d.bonus} jetons !`);
       localStorage.setItem("nioufi_token", d.token);
     } catch {
       setErr("Serveur injoignable.");
@@ -202,13 +207,20 @@ export default function Home() {
         )}
 
         {tab === "account" && token && (
-          <div className="flex items-center justify-between rounded-xl px-3.5 py-3 bg-gold/10 border border-gold/40">
-            <div>
-              <div className="text-gold font-bold text-[15px]">👤 {username}</div>
-              <div className="text-emerald-400/90 text-[13px]">{balance ?? "..."} 🪙</div>
+          <>
+            <div className="flex items-center justify-between rounded-xl px-3.5 py-3 bg-gold/10 border border-gold/40">
+              <div>
+                <div className="text-gold font-bold text-[15px]">👤 {username}</div>
+                <div className="text-emerald-400/90 text-[13px]">{balance ?? "..."} 🪙</div>
+              </div>
+              <button onClick={logout} className="text-white/50 text-[12px] underline">Déconnexion</button>
             </div>
-            <button onClick={logout} className="text-white/50 text-[12px] underline">Déconnexion</button>
-          </div>
+            {bonusMsg && (
+              <div className="mt-2 text-center text-[13px] font-bold text-gold rounded-xl py-2 px-3 bg-gold/15 border border-gold/40 animate-pulse">
+                {bonusMsg}
+              </div>
+            )}
+          </>
         )}
 
         {/* Créer / rejoindre */}

@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser } = require("./db");
+const { pool, getUserByName, getUser, createUser, claimDailyBonus } = require("./db");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -78,7 +78,14 @@ router.post("/login", async (req, res) => {
   const user = await getUserByName(username || "");
   if (!user || !(await bcrypt.compare(password || "", user.password_hash)))
     return res.status(401).json({ error: "Pseudo ou mot de passe incorrect." });
-  res.json({ token: sign(user), username: user.username, balance: user.balance });
+
+  const bonus = await claimDailyBonus(user.id);
+  res.json({
+    token: sign(user),
+    username: user.username,
+    balance: bonus.granted ? bonus.balance : user.balance,
+    bonus: bonus.granted ? bonus.amount : 0,
+  });
 });
 
 router.get("/me", async (req, res) => {
@@ -87,7 +94,13 @@ router.get("/me", async (req, res) => {
   if (!payload) return res.status(401).json({ error: "Token invalide." });
   const user = await getUser(payload.uid);
   if (!user) return res.status(404).json({ error: "Compte introuvable." });
-  res.json({ username: user.username, balance: user.balance });
+
+  const bonus = await claimDailyBonus(user.id);
+  res.json({
+    username: user.username,
+    balance: bonus.granted ? bonus.balance : user.balance,
+    bonus: bonus.granted ? bonus.amount : 0,
+  });
 });
 
 module.exports = { router, verifyToken };

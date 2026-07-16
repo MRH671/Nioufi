@@ -19,7 +19,24 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_bonus_at TIMESTAMPTZ`);
   console.log("🗄️  PostgreSQL prêt (table users).");
+}
+
+const DAILY_BONUS = 50;
+
+/** Tente de créditer le bonus quotidien (dispo toutes les 20h).
+ *  Renvoie { granted, amount, balance } */
+async function claimDailyBonus(id) {
+  if (!pool) return { granted: false };
+  const r = await pool.query(
+    `UPDATE users SET balance = balance + $2, last_bonus_at = NOW()
+     WHERE id = $1 AND (last_bonus_at IS NULL OR last_bonus_at < NOW() - INTERVAL '20 hours')
+     RETURNING balance`,
+    [id, DAILY_BONUS]
+  );
+  if (r.rows.length === 0) return { granted: false };
+  return { granted: true, amount: DAILY_BONUS, balance: r.rows[0].balance };
 }
 
 async function getUser(id) {
@@ -47,4 +64,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, claimDailyBonus };
