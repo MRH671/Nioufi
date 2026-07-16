@@ -1,3 +1,6 @@
+#!/bin/bash
+# Met à jour game.js et déploie
+cat > ~/Nioufi/server/src/game.js << 'NIOUFI_EOF'
 // ═══════════════════════════════════════════════════════════════════════════
 //  NIOUFI — Logique de jeu (côté serveur = source de vérité)
 //  Aucune carte cachée n'est jamais envoyée aux clients.
@@ -291,3 +294,10 @@ class Room {
 }
 
 module.exports = { Room, score };
+NIOUFI_EOF
+
+cd ~/Nioufi
+git add .
+git commit -m "Joueurs fauchés spectateurs"
+git push
+echo "✅ Poussé ! Railway redéploie automatiquement (1-2 min)."
