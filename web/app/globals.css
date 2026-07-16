@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: radial-gradient(ellipse at 50% 20%, #182b1c 0%, #070d08 80%);
+  min-height: 100vh;
+}
+
+@keyframes pulse-btn { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+@keyframes chip-in { from{transform:translateY(-8px);opacity:0} to{transform:translateY(0);opacity:1} }
+.animate-pulse-btn { animation: pulse-btn 1.6s ease-in-out infinite; }
+.animate-chip-in { animation: chip-in .35s ease; }
