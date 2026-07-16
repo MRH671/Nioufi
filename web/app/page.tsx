@@ -227,9 +227,9 @@ export default function Home() {
         <label className="block text-gold text-[11px] uppercase tracking-[.14em] mb-1">Code de la table</label>
         <div className="flex gap-2">
           <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} maxLength={4}
-            className="flex-1 rounded-xl px-3 py-2.5 bg-black/35 border border-gold/25 text-white text-center font-extrabold tracking-[.3em] uppercase outline-none"
+            className="flex-1 min-w-0 rounded-xl px-2 py-2.5 bg-black/35 border border-gold/25 text-white text-center font-extrabold tracking-[.25em] uppercase outline-none"
             placeholder="ABCD" />
-          <button onClick={join} className="px-4 rounded-xl font-bold text-sm text-gray-200 bg-white/10 border border-white/20 whitespace-nowrap">
+          <button onClick={join} className="shrink-0 px-3.5 rounded-xl font-bold text-sm text-gray-200 bg-white/10 border border-white/20">
             Rejoindre
           </button>
         </div>
