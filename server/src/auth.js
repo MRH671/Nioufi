@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList } = require("./db");
+const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList, friendLeaderboard } = require("./db");
 const presence = require("./presence");
 
 const router = express.Router();
@@ -152,6 +152,21 @@ router.post("/friends/remove", async (req, res) => {
   const p = requireAuth(req, res);
   if (!p) return;
   res.json(await friendRemove(p.uid, req.body?.userId));
+});
+
+// ── Classement entre amis ──
+router.get("/leaderboard", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const rows = await friendLeaderboard(p.uid);
+  res.json({
+    entries: rows.map((r) => ({
+      username: r.username,
+      balance: r.balance,
+      me: r.id === p.uid,
+      online: presence.isOnline(r.id),
+    })),
+  });
 });
 
 module.exports = { router, verifyToken };

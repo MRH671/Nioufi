@@ -122,6 +122,23 @@ async function areFriends(a, b) {
   return r.rows.length > 0;
 }
 
+/** Classement : moi + mes amis, triés par solde décroissant */
+async function friendLeaderboard(uid) {
+  if (!pool) return [];
+  const r = await pool.query(
+    `SELECT u.id, u.username, u.balance FROM users u
+     WHERE u.id = $1
+        OR u.id IN (
+          SELECT CASE WHEN f.requester = $1 THEN f.addressee ELSE f.requester END
+          FROM friendships f
+          WHERE (f.requester = $1 OR f.addressee = $1) AND f.status = 'accepted'
+        )
+     ORDER BY u.balance DESC, u.username ASC`,
+    [uid]
+  );
+  return r.rows;
+}
+
 /** Enregistre un gain/perte de manche */
 async function addHistory(userId, delta) {
   if (!pool || !delta) return;
@@ -207,4 +224,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends, friendLeaderboard };

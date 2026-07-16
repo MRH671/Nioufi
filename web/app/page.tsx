@@ -7,6 +7,7 @@ import BonusModal, { type BonusInfo } from "@/components/BonusModal";
 import HistoryModal from "@/components/HistoryModal";
 import TutorialModal from "@/components/TutorialModal";
 import FriendsModal from "@/components/FriendsModal";
+import LeaderboardModal from "@/components/LeaderboardModal";
 
 const API = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [invite, setInvite] = useState<{ from: string; code: string } | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [err, setErr] = useState("");
@@ -157,6 +159,9 @@ export default function Home() {
         <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
       )}
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      {showLeaderboard && token && (
+        <LeaderboardModal api={API} token={token} onClose={() => setShowLeaderboard(false)} />
+      )}
       {showFriends && token && (
         <FriendsModal api={API} token={token} inviteMode={game?.phase === "lobby"}
           onClose={() => setShowFriends(false)} />
@@ -301,18 +306,22 @@ export default function Home() {
               </div>
               <button onClick={logout} className="text-white/50 text-[12px] underline">Déconnexion</button>
             </div>
-            <div className="flex gap-2 mt-2">
+            <div className="grid grid-cols-2 gap-2 mt-2">
               <button onClick={openBonus}
-                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
                 🎁 Bonus
               </button>
               <button onClick={() => setShowHistory(true)}
-                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
                 📜 Historique
               </button>
               <button onClick={() => setShowFriends(true)}
-                className="flex-1 py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
                 👥 Amis
+              </button>
+              <button onClick={() => setShowLeaderboard(true)}
+                className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
+                🏆 Classement
               </button>
             </div>
           </>
