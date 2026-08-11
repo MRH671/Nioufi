@@ -52,7 +52,7 @@ async function resolveIdentity({ token, key, name }) {
     if (!payload) return { error: "Session expirée, reconnecte-toi." };
     const user = await getUser(payload.uid);
     if (!user) return { error: "Compte introuvable." };
-    if (user.balance <= 0) return { error: "Ton solde est à 0 — impossible de rejoindre une table. (Le bonus de recharge arrive bientôt !)" };
+    if (user.balance <= 0) return { error: "Ton solde est à 0 — utilise la recharge de secours 🆘 sur l&#39;accueil !".replace("&#39;", String.fromCharCode(39)) };
     return { key: `user-${user.id}`, name: user.username, coins: user.balance, userId: user.id };
   }
   if (!key || !name?.trim()) return { error: "Nom requis." };
@@ -153,6 +153,19 @@ io.on("connection", (socket) => {
     if (r.ok) broadcast(room);
     return r;
   };
+
+  socket.on("leaveRoom", (payload, cb) => {
+    const room = rooms.get(socket.data.code);
+    if (!room) { socket.data.code = null; return cb?.({ ok: true }); }
+    const r = room.leave(socket.data.key);
+    socket.leave(room.code);
+    socket.data.code = null;
+    cb?.(r);
+    if (r.ok) {
+      if (r.empty) rooms.delete(room.code);
+      else broadcast(room);
+    }
+  });
 
   socket.on("startCeremony", action((room) => room.startCeremony(socket.data.key)));
   socket.on("startRound", action((room) => room.startRound(socket.data.key)));

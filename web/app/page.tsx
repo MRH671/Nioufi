@@ -8,6 +8,7 @@ import HistoryModal from "@/components/HistoryModal";
 import TutorialModal from "@/components/TutorialModal";
 import FriendsModal from "@/components/FriendsModal";
 import LeaderboardModal from "@/components/LeaderboardModal";
+import ShopModal from "@/components/ShopModal";
 
 const API = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
@@ -20,10 +21,14 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [bonusInfo, setBonusInfo] = useState<BonusInfo | null>(null);
+  const [rescue, setRescue] = useState<{ available: boolean; reason?: string; readyAt?: number; amount?: number } | null>(null);
+  const [rescueMsg, setRescueMsg] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [mySkins, setMySkins] = useState<{ table: string; cards: string }>({ table: "classic", cards: "cards-classic" });
   const [invite, setInvite] = useState<{ from: string; code: string } | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [err, setErr] = useState("");
@@ -54,6 +59,8 @@ export default function Home() {
         .then((d) => {
           setUsername(d.username); setBalance(d.balance);
           if (d.bonus?.available) setBonusInfo(d.bonus);
+          setRescue(d.rescue || null);
+          if (d.skins) setMySkins(d.skins);
         })
         .catch(() => { localStorage.removeItem("nioufi_token"); setToken(null); });
     }
@@ -114,6 +121,22 @@ export default function Home() {
     } finally { setBusy(false); }
   };
 
+  const claimRescue = async () => {
+    if (!token) return;
+    setRescueMsg("");
+    try {
+      const r = await fetch(`${API}/api/rescue/claim`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (!r.ok) { setRescueMsg(d.error || "Recharge indisponible."); return; }
+      setBalance(d.balance);
+      setRescue(null);
+      setRescueMsg(`🆘 +${d.amount} jetons ! Retourne à la table.`);
+    } catch { setRescueMsg("Serveur injoignable."); }
+  };
+
   const openBonus = async () => {
     if (!token) return;
     try {
@@ -157,6 +180,12 @@ export default function Home() {
     });
   };
 
+  const leaveTable = () => {
+    getSocket().emit("leaveRoom", {}, () => {});
+    localStorage.removeItem("nioufi_room");
+    setGame(null);
+  };
+
   const acceptInvite = () => {
     if (!invite) return;
     const p = identityPayload();
@@ -180,6 +209,12 @@ export default function Home() {
         <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
       )}
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      {showShop && token && (
+        <ShopModal api={API} token={token}
+          onBalance={(b) => setBalance(b)}
+          onEquipped={(s) => setMySkins(s)}
+          onClose={() => setShowShop(false)} />
+      )}
       {showLeaderboard && token && (
         <LeaderboardModal api={API} token={token} onClose={() => setShowLeaderboard(false)} />
       )}
@@ -253,6 +288,10 @@ export default function Home() {
               👥 Inviter des amis
             </button>
           )}
+          <button onClick={leaveTable}
+            className="w-full mt-2 py-2 rounded-xl text-[12px] font-bold text-white/45 bg-white/5 border border-white/12">
+            🚪 Quitter la table
+          </button>
           {err && <div className="text-red-400 text-[13px] mt-3 text-center">{err}</div>}
         </div>
       </div>
@@ -260,7 +299,7 @@ export default function Home() {
   }
 
   // ── En jeu ──
-  if (game) return <GameTable game={game} />;
+  if (game) return <GameTable game={game} skins={mySkins} onLeave={leaveTable} />;
 
   // ── Accueil ──
   const inputCls = "w-full rounded-xl px-3 py-2.5 bg-black/35 border border-gold/25 text-white text-[15px] outline-none";
@@ -327,6 +366,30 @@ export default function Home() {
               </div>
               <button onClick={logout} className="text-white/50 text-[12px] underline">Déconnexion</button>
             </div>
+            {balance === 0 && rescue && (
+              <div className="mt-2 rounded-xl p-3 text-center bg-red-900/20 border border-red-500/35">
+                {rescue.available ? (
+                  <>
+                    <div className="text-red-200 text-[12.5px] mb-2">Plus un jeton en poche ?</div>
+                    <button onClick={claimRescue}
+                      className="w-full py-2.5 rounded-xl font-extrabold text-[14px] text-[#241d05] animate-pulse"
+                      style={{ background: "linear-gradient(140deg,#caa32f,#eed780,#caa32f)" }}>
+                      🆘 Recharge de secours : +{rescue.amount ?? 100} 🪙
+                    </button>
+                  </>
+                ) : rescue.reason === "cooldown" && rescue.readyAt ? (
+                  <div className="text-red-200/80 text-[12px]">
+                    🆘 Prochaine recharge de secours à{" "}
+                    <b className="text-gold">
+                      {new Date(rescue.readyAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </b>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {rescueMsg && (
+              <div className="mt-2 text-center text-[12.5px] font-bold text-gold">{rescueMsg}</div>
+            )}
             <div className="grid grid-cols-2 gap-2 mt-2">
               <button onClick={openBonus}
                 className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
@@ -343,6 +406,11 @@ export default function Home() {
               <button onClick={() => setShowLeaderboard(true)}
                 className="py-2 rounded-xl text-[12px] font-bold text-gold bg-gold/10 border border-gold/30">
                 🏆 Classement
+              </button>
+              <button onClick={() => setShowShop(true)}
+                className="col-span-2 py-2 rounded-xl text-[12px] font-bold text-[#241d05]"
+                style={{ background: "linear-gradient(140deg,#caa32f,#eed780,#caa32f)" }}>
+                🛍 Boutique de skins
               </button>
             </div>
           </>

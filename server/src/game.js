@@ -83,6 +83,24 @@ class Room {
     return { ok: true };
   }
 
+  // ── Quitter la table ──
+  leave(key) {
+    const me = this.idx(key);
+    if (me === -1) return { ok: false, error: "Pas à la table." };
+    const name = this.players[me].name;
+    if (this.phase === "lobby") {
+      this.players.splice(me, 1);
+      // L'hôte part → le suivant hérite de la couronne
+      if (key === this.hostKey && this.players.length > 0) this.hostKey = this.players[0].key;
+      this.pushFeed(`🚪 ${name} quitte la table`);
+      return { ok: true, removed: true, empty: this.players.length === 0 };
+    }
+    // En partie : le siège reste (la manche continue), le joueur est marqué parti
+    this.players[me].connected = false;
+    this.pushFeed(`🚪 ${name} quitte la partie`);
+    return { ok: true, removed: false, empty: false };
+  }
+
   // ── Cérémonie des As ──
   startCeremony(key) {
     if (key !== this.hostKey) return { ok: false, error: "Seul l'hôte peut lancer." };
