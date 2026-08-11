@@ -28,6 +28,7 @@ export type GameState = {
   results: Result[] | null;
   nineWinner: number;
   revealAt: number | null;
+  deadline: number | null;
   feed: { t: number; msg: string }[];
 };
 

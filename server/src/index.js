@@ -69,6 +69,27 @@ async function persistBalances(room) {
   }
 }
 
+/** Persistance complète après un retournement : soldes + historique */
+function afterReveal(room) {
+  persistBalances(room);
+  room.players.forEach((p, i) => {
+    if (p.userId && room.results?.[i]?.delta) addHistory(p.userId, room.results[i].delta);
+  });
+}
+
+// ── Tick des timers : exécute les actions expirées ──
+setInterval(() => {
+  for (const [, room] of rooms) {
+    if (room.deadline && Date.now() > room.deadline) {
+      const r = room.handleTimeout();
+      if (r.changed) {
+        broadcast(room);
+        if (r.revealed) afterReveal(room);
+      }
+    }
+  }
+}, 1000);
+
 io.on("connection", (socket) => {
   // ── Identification (présence en ligne + invitations) ──
   socket.on("identify", ({ token }) => {
@@ -148,11 +169,7 @@ io.on("connection", (socket) => {
     cb?.(r);
     if (r.ok) {
       broadcast(room);
-      persistBalances(room); // async, pas bloquant
-      // Historique des gains/pertes pour les comptes connectés
-      room.players.forEach((p, i) => {
-        if (p.userId && room.results?.[i]?.delta) addHistory(p.userId, room.results[i].delta);
-      });
+      afterReveal(room); // async, pas bloquant
     }
   });
 

@@ -66,6 +66,22 @@ export default function Home() {
     };
   }, []);
 
+  // Reconnexion automatique : si on était à une table, on la rejoint en silence
+  useEffect(() => {
+    if (!connected || game) return;
+    const savedRoom = localStorage.getItem("nioufi_room");
+    if (!savedRoom) return;
+    // Si un compte est enregistré, attendre que le token soit chargé
+    const storedTok = localStorage.getItem("nioufi_token");
+    if (storedTok && !token) return;
+    const name = localStorage.getItem("nioufi_name");
+    const payload = token ? { token } : name ? { key: getPlayerKey(), name } : null;
+    if (!payload) { localStorage.removeItem("nioufi_room"); return; }
+    getSocket().emit("joinRoom", { ...payload, code: savedRoom }, (r: Ack) => {
+      if (!r.ok) localStorage.removeItem("nioufi_room"); // table fermée ou partie finie
+    });
+  }, [connected, game, token]);
+
   // S'identifier auprès du socket (présence en ligne + invitations)
   useEffect(() => {
     if (!token) return;
@@ -124,7 +140,10 @@ export default function Home() {
     const p = identityPayload();
     if (!p) return;
     setErr("");
-    getSocket().emit("createRoom", p, (r: Ack) => { if (!r.ok) setErr(r.error || "Erreur inconnue."); });
+    getSocket().emit("createRoom", p, (r: Ack) => {
+      if (!r.ok) setErr(r.error || "Erreur inconnue.");
+      else if (r.code) localStorage.setItem("nioufi_room", r.code);
+    });
   };
 
   const join = () => {
@@ -134,6 +153,7 @@ export default function Home() {
     setErr("");
     getSocket().emit("joinRoom", { ...p, code: joinCode.trim().toUpperCase() }, (r: Ack) => {
       if (!r.ok) setErr(r.error || "Erreur inconnue.");
+      else if (r.code) localStorage.setItem("nioufi_room", r.code);
     });
   };
 
@@ -143,6 +163,7 @@ export default function Home() {
     if (!p) return;
     getSocket().emit("joinRoom", { ...p, code: invite.code }, (r: Ack) => {
       if (!r.ok) setErr(r.error || "Impossible de rejoindre.");
+      else if (r.code) localStorage.setItem("nioufi_room", r.code);
       setInvite(null);
     });
   };

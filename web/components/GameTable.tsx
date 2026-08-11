@@ -21,12 +21,19 @@ export default function GameTable({ game }: { game: GameState }) {
   const [betInput, setBetInput] = useState("");
   const [betHouse, setBetHouse] = useState<number | null>(null);
   const [cutPos, setCutPos] = useState(20);
+  const [nowTs, setNowTs] = useState(Date.now());
   const [toast, setToast] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const n = game.players.length;
   const myIdx = game.myIdx;
   const isBank = myIdx === game.bankIdx;
+
+  // Horloge locale pour le compte à rebours
+  useEffect(() => {
+    const iv = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     const update = () => ref.current && setDims({ w: ref.current.clientWidth, h: ref.current.clientHeight });
@@ -324,6 +331,11 @@ export default function GameTable({ game }: { game: GameState }) {
     );
   }
 
+  const remaining = game.deadline
+    ? Math.max(0, Math.ceil((game.deadline - nowTs) / 1000))
+    : null;
+  const showTimer = remaining !== null && ["cutting", "betting", "pre_reveal", "between_rounds"].includes(game.phase);
+
   // ═══ Rendu ═══
   return (
     <div className="min-h-screen flex flex-col overflow-hidden">
@@ -356,6 +368,19 @@ export default function GameTable({ game }: { game: GameState }) {
           boxShadow: "inset 0 0 60px rgba(0,0,0,.55), 0 18px 50px rgba(0,0,0,.6), inset 0 0 0 3px rgba(232,201,106,.15)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
         }}>
+          {showTimer && (
+            <div style={{
+              position: "absolute", top: "9%", left: "50%", transform: "translateX(-50%)",
+              padding: "3px 12px", borderRadius: 999, fontWeight: 800, fontSize: 12.5,
+              fontVariantNumeric: "tabular-nums",
+              background: remaining <= 10 ? "rgba(180,40,40,.35)" : "rgba(0,0,0,.4)",
+              border: remaining <= 10 ? "1px solid rgba(224,80,80,.7)" : "1px solid rgba(232,201,106,.3)",
+              color: remaining <= 10 ? "#ff9c9c" : "#e8c96a",
+              animation: remaining <= 10 ? "pulse 1s ease-in-out infinite" : "none",
+            }}>
+              ⏱ {remaining}s
+            </div>
+          )}
           {center}
         </div>
 

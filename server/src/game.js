@@ -33,6 +33,16 @@ function randCode() {
   return c;
 }
 
+// Durées des timers de tour (ms)
+const T = {
+  CUT: 45000,        // le coupeur choisit où couper
+  BET: 45000,        // chaque tour de mise
+  PRE_REVEAL: 30000, // la banque retourne
+  DECIDE: 45000,     // décision après les résultats
+  BETWEEN: 60000,    // relance de la manche suivante
+  CEREMONY_EXTRA: 30000,
+};
+
 // ─── Room ─────────────────────────────────────────────────────────────────────
 class Room {
   constructor(hostKey, hostName, hostCoins = 100, hostUserId = null) {
@@ -51,6 +61,7 @@ class Room {
     this.nineWinner = -1;
     this.revealAt = null;
     this.feed = [];
+    this.deadline = null; // timestamp limite de l'action en cours
     this.createdAt = Date.now();
   }
 
@@ -94,13 +105,14 @@ class Room {
     this.ceremony = { steps, startedAt: Date.now() };
     this.cutterIdx = cutter;
     this.bankIdx = banker;
+    this.deadline = Date.now() + steps.length * 850 + T.CEREMONY_EXTRA;
     this.pushFeed("🂡 Distribution pour désigner la banque...");
     return { ok: true };
   }
 
   // ── Nouvelle manche : d'abord la coupe, puis la distribution ──
-  startRound(key) {
-    if (this.idx(key) !== this.bankIdx) return { ok: false, error: "Seule la banque distribue." };
+  startRound(key, system = false) {
+    if (!system && this.idx(key) !== this.bankIdx) return { ok: false, error: "Seule la banque distribue." };
     if (!["ceremony", "between_rounds"].includes(this.phase)) return { ok: false, error: "Pas maintenant." };
 
     // Joueurs fauchés = spectateurs. Il faut au moins 1 joueur solvable face à la banque.
@@ -115,14 +127,15 @@ class Room {
     this.nineWinner = -1;
     this.revealAt = null;
     this.phase = "cutting";
+    this.deadline = Date.now() + T.CUT;
     this.pushFeed(`✂️ ${this.players[this.cutterIdx].name} doit couper le paquet`);
     return { ok: true };
   }
 
   // ── Coupe du paquet par le coupeur ──
-  cutDeck(key, pos) {
+  cutDeck(key, pos, system = false) {
     if (this.phase !== "cutting") return { ok: false, error: "Pas maintenant." };
-    if (this.idx(key) !== this.cutterIdx) return { ok: false, error: "Ce n'est pas à toi de couper." };
+    if (!system && this.idx(key) !== this.cutterIdx) return { ok: false, error: "Ce n'est pas à toi de couper." };
     pos = Math.floor(Number(pos));
     if (!pos || pos < 5 || pos > 35) return { ok: false, error: "Coupe entre la 5e et la 35e carte." };
 
@@ -137,6 +150,7 @@ class Room {
     this._deckPos = this.n();
     this.betIdx = this.firstBettor();
     this.phase = "betting";
+    this.deadline = Date.now() + T.BET;
     this.pushFeed(`🂠 ${this.players[this.bankIdx].name} distribue une carte à chacun`);
     return { ok: true };
   }
@@ -198,12 +212,13 @@ class Room {
     }
 
     this.bets.push({ bettor: me, house, amount });
+    this.deadline = Date.now() + T.BET;
     this.pushFeed(`💰 ${this.players[me].name} mise ${amount} sur ${house === me ? "sa maison" : "la maison de " + this.players[house].name}`);
     return { ok: true };
   }
 
-  endBettingTurn(key) {
-    const me = this.idx(key);
+  endBettingTurn(key, system = false) {
+    const me = system ? this.betIdx : this.idx(key);
     if (this.phase !== "betting" || me !== this.betIdx) return { ok: false, error: "Pas ton tour." };
 
     const next = this.nextBettor(me);
@@ -216,11 +231,13 @@ class Room {
           this.hands[pIdx].push(this.deck[this._deckPos++]);
       this.betIdx = -1;
       this.phase = "pre_reveal";
+      this.deadline = Date.now() + T.PRE_REVEAL;
       const total = this.bets.reduce((s, b) => s + b.amount, 0);
       this.pushFeed(`🏦 La banque couvre ${total} jetons. 2 cartes pour tout le monde !`);
     } else {
       this.pushFeed(`✓ ${this.players[me].name} a terminé ses mises`);
       this.betIdx = next;
+      this.deadline = Date.now() + T.BET;
     }
     return { ok: true };
   }
@@ -247,8 +264,8 @@ class Room {
   }
 
   // ── Retournement + résultats ──
-  reveal(key) {
-    if (this.idx(key) !== this.bankIdx) return { ok: false, error: "Seule la banque retourne." };
+  reveal(key, system = false) {
+    if (!system && this.idx(key) !== this.bankIdx) return { ok: false, error: "Seule la banque retourne." };
     if (this.phase !== "pre_reveal") return { ok: false, error: "Pas maintenant." };
 
     const scores = this.hands.map((h) => score(h));
@@ -268,17 +285,19 @@ class Room {
     this.nineWinner = bs !== 9 ? scores.findIndex((s, i) => s === 9 && i !== this.bankIdx) : -1;
     this.revealAt = Date.now();
     this.phase = "revealing";
+    this.deadline = this.revealAt + 1500 * (this.n() + 1) + T.DECIDE;
     this.pushFeed(`🔥 ${this.players[this.bankIdx].name} retourne les cartes !`);
     return { ok: true };
   }
 
   // ── Décision de banque après un 9 / fin de manche ──
-  decideBank(key, takeIt) {
+  decideBank(key, takeIt, system = false) {
     if (this.phase !== "revealing") return { ok: false, error: "Pas maintenant." };
-    const me = this.idx(key);
+    const me = system ? -99 : this.idx(key);
+    if (system) takeIt = false;
     // Qui a le droit de décider : le gagnant du 9, sinon la banque
-    if (this.nineWinner !== -1 && me !== this.nineWinner) return { ok: false, error: "Ce n'est pas à toi de décider." };
-    if (this.nineWinner === -1 && me !== this.bankIdx) return { ok: false, error: "Seule la banque continue." };
+    if (!system && this.nineWinner !== -1 && me !== this.nineWinner) return { ok: false, error: "Ce n'est pas à toi de décider." };
+    if (!system && this.nineWinner === -1 && me !== this.bankIdx) return { ok: false, error: "Seule la banque continue." };
 
     let b = this.bankIdx;
     if (takeIt && this.nineWinner === me) {
@@ -305,7 +324,46 @@ class Room {
     if (this.cutterIdx === this.bankIdx) this.advanceCutter();
     this.nineWinner = -1;
     this.phase = "between_rounds";
+    this.deadline = Date.now() + T.BETWEEN;
     return { ok: true };
+  }
+
+  // ── Timeout : l'action en cours est exécutée automatiquement ──
+  handleTimeout() {
+    const phase = this.phase;
+    this.deadline = null;
+    if (phase === "ceremony") {
+      const r = this.startRound(null, true);
+      if (r.ok) this.pushFeed("⏰ La première manche démarre !");
+      return { changed: r.ok };
+    }
+    if (phase === "cutting") {
+      const pos = 5 + Math.floor(Math.random() * 31);
+      this.pushFeed(`⏰ ${this.players[this.cutterIdx].name} a tardé — coupe automatique`);
+      const r = this.cutDeck(null, pos, true);
+      return { changed: r.ok };
+    }
+    if (phase === "betting") {
+      this.pushFeed(`⏰ ${this.players[this.betIdx]?.name} n'a pas misé à temps — tour passé`);
+      const r = this.endBettingTurn(null, true);
+      return { changed: r.ok };
+    }
+    if (phase === "pre_reveal") {
+      this.pushFeed("⏰ Retournement automatique !");
+      const r = this.reveal(null, true);
+      return { changed: r.ok, revealed: r.ok };
+    }
+    if (phase === "revealing") {
+      const r = this.decideBank(null, false, true);
+      if (r.ok) this.pushFeed("⏰ Manche suivante...");
+      return { changed: r.ok };
+    }
+    if (phase === "between_rounds") {
+      const r = this.startRound(null, true);
+      if (r.ok) this.pushFeed("⏰ Nouvelle manche automatique");
+      return { changed: r.ok };
+    }
+    return { changed: false };
   }
 
   // ── Sérialisation PAR JOUEUR : on masque tout ce qu'il n'a pas le droit de voir ──
@@ -332,6 +390,7 @@ class Room {
       results: this.results,
       nineWinner: this.nineWinner,
       revealAt: this.revealAt,
+      deadline: this.deadline,
       feed: this.feed,
     };
   }
