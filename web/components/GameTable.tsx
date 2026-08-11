@@ -4,6 +4,7 @@ import type { GameState, Ack, Card } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
 import PlayingCard from "./PlayingCard";
 import { sfxDeal, sfxFlip, sfxChip, sfxWin, sfxLose, sfxNioufi, setMuted, isMuted } from "@/lib/sounds";
+import { tableTheme, cardTheme } from "@/lib/skins";
 
 // ─── Position des sièges (toi toujours en bas) ────────────────────────────────
 function seatPosition(index: number, total: number, W: number, H: number) {
@@ -11,7 +12,9 @@ function seatPosition(index: number, total: number, W: number, H: number) {
   return { x: W / 2 + W * 0.4 * Math.cos(angle), y: H / 2 + H * 0.38 * Math.sin(angle) };
 }
 
-export default function GameTable({ game }: { game: GameState }) {
+export default function GameTable({ game, skins }: { game: GameState; skins?: { table: string; cards: string } }) {
+  const th = tableTheme(skins?.table);
+  const ct = cardTheme(skins?.cards);
   const socket = getSocket();
   const ref = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 400, h: 560 });
@@ -222,8 +225,8 @@ export default function GameTable({ game }: { game: GameState }) {
                 className="w-40" style={{ accentColor: "#e8c96a" }} />
               <span className="text-emerald-500/70 text-[10px]">35</span>
             </div>
-            <div className="text-[#f0e6c8] text-[12.5px] font-display italic mb-1">
-              Coupe à la <b className="text-gold not-italic">{cutPos}</b>ᵉ carte
+            <div className="text-[12.5px] font-display italic mb-1" style={{ color: "var(--tc-msg, #f0e6c8)" }}>
+              Coupe à la <b className="not-italic" style={{ color: "var(--tc-title, #e8c96a)" }}>{cutPos}</b>ᵉ carte
             </div>
             <GoldBtn small onClick={() => { sfxFlip(); emit("cutDeck", { pos: cutPos }); }}>
               ✂️ Couper le paquet
@@ -338,7 +341,8 @@ export default function GameTable({ game }: { game: GameState }) {
 
   // ═══ Rendu ═══
   return (
-    <div className="min-h-screen flex flex-col overflow-hidden">
+    <div className="min-h-screen flex flex-col overflow-hidden"
+      style={{ background: `radial-gradient(ellipse at 50% 20%, ${th.bg1} 0%, ${th.bg2} 80%)` }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 pt-2">
         <span className="font-display text-[22px] text-gold">Nioufi</span>
@@ -362,12 +366,68 @@ export default function GameTable({ game }: { game: GameState }) {
       <div ref={ref} className="flex-1 relative min-h-[480px]">
         <div style={{
           position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-          width: "min(80%, 700px)", height: "min(66%, 430px)", borderRadius: "50%",
-          background: "radial-gradient(ellipse at 50% 42%, #2c6b3f 0%, #1c4a2b 55%, #123420 100%)",
-          border: "12px solid #3d2417",
-          boxShadow: "inset 0 0 60px rgba(0,0,0,.55), 0 18px 50px rgba(0,0,0,.6), inset 0 0 0 3px rgba(232,201,106,.15)",
+          width: th.shape.width, height: th.shape.height, borderRadius: th.shape.radius,
+          background: th.surface,
+          border: th.border,
+          boxShadow: th.shadow,
           display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+          ["--tc-title" as never]: th.ink === "dark" ? "#6b4d0c" : "#e8c96a",
+          ["--tc-msg" as never]: th.ink === "dark" ? "#2e2e26" : "#f0e6c8",
+          ["--tc-dim" as never]: th.ink === "dark" ? "#4f5d4a" : "#7da884cc",
         }}>
+          {/* Décorations du thème */}
+          {th.decor === "camping" && (
+            <>
+              {/* Pieds en plastique blanc qui dépassent sous le plateau */}
+              {[{ l: "14%" }, { r: "14%" }].map((pos, i) => (
+                <div key={i} style={{
+                  position: "absolute", bottom: -30, ...(pos.l ? { left: pos.l } : { right: pos.r }),
+                  width: 13, height: 34, borderRadius: "0 0 4px 4px",
+                  background: "linear-gradient(90deg, #ffffff 0%, #e6e8e3 55%, #c9ccc6 100%)",
+                  boxShadow: "3px 4px 8px rgba(0,0,0,.45)", zIndex: 0,
+                }} />
+              ))}
+            </>
+          )}
+          {th.decor === "boitier" && (
+            <>
+              {/* Jointure des deux portes */}
+              <div style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 2, background: "rgba(0,0,0,.3)", transform: "translateX(-1px)" }} />
+              {/* Rivets aux coins */}
+              {[{ top: 8, left: 10 }, { top: 8, right: 10 }, { bottom: 8, left: 10 }, { bottom: 8, right: 10 }].map((p, i) => (
+                <div key={i} style={{
+                  position: "absolute", ...p, width: 7, height: 7, borderRadius: "50%",
+                  background: "radial-gradient(circle at 35% 30%, #9aa892, #3c4636)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,.5)",
+                }} />
+              ))}
+              {/* Sticker danger électrique */}
+              <div style={{
+                position: "absolute", top: 12, right: 22, width: 34, height: 30,
+                clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
+                background: "linear-gradient(180deg, #f5c916, #dfae0a)",
+                display: "flex", alignItems: "flex-end", justifyContent: "center",
+                fontSize: 13, color: "#15150a", paddingBottom: 1,
+                filter: "drop-shadow(0 1px 2px rgba(0,0,0,.4))",
+              }}>⚡</div>
+              {/* Tag au marqueur */}
+              <div style={{
+                position: "absolute", top: "16%", left: "9%",
+                transform: "rotate(-7deg) skewX(-6deg)",
+                fontFamily: "'Segoe Script', 'Brush Script MT', cursive",
+                fontSize: 21, fontWeight: 700, letterSpacing: 2,
+                color: "rgba(28, 28, 110, .72)",
+                textShadow: "1px 1px 0 rgba(28,28,110,.22)",
+                pointerEvents: "none", whiteSpace: "nowrap", zIndex: 1,
+              }}>Neuhof 67100</div>
+              {/* Grille d'aération */}
+              <div style={{
+                position: "absolute", left: 16, bottom: 14, width: 58, height: 26, borderRadius: 3,
+                background: "repeating-linear-gradient(180deg, rgba(0,0,0,.4) 0 3px, rgba(255,255,255,.08) 3px 6px)",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,.5)",
+              }} />
+            </>
+          )}
           {showTimer && (
             <div style={{
               position: "absolute", top: "9%", left: "50%", transform: "translateX(-50%)",
@@ -381,7 +441,11 @@ export default function GameTable({ game }: { game: GameState }) {
               ⏱ {remaining}s
             </div>
           )}
-          {center}
+          {th.mat ? (
+            <div style={{ background: th.mat, borderRadius: 14, padding: "14px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.35)" }}>
+              {center}
+            </div>
+          ) : center}
         </div>
 
         {/* Sièges */}
@@ -402,7 +466,7 @@ export default function GameTable({ game }: { game: GameState }) {
               {/* Cartes */}
               <div className="min-h-[50px] flex gap-0.5">
                 {game.phase === "ceremony" && ceremonyCards[i] && (
-                  <PlayingCard card={ceremonyCards[i]} faceUp w={34} highlight={ceremonyCards[i]!.rank === "A"} />
+                  <PlayingCard card={ceremonyCards[i]} faceUp w={34} back={ct} highlight={ceremonyCards[i]!.rank === "A"} />
                 )}
                 {game.phase !== "ceremony" && hand.map((card, ci) => {
                   const peekKey = `${i}-${ci}`;
@@ -410,7 +474,7 @@ export default function GameTable({ game }: { game: GameState }) {
                   const publicCard = card; // non-null seulement en phase revealing
                   const shown = publicCard ?? peekedCard ?? null;
                   return (
-                    <PlayingCard key={ci} card={shown} w={32}
+                    <PlayingCard key={ci} card={shown} w={32} back={ct}
                       faceUp={!!shown && (isRevealed(i) || allRevealed || !!peekedCard)}
                       peekable={canPeek(i, ci)} onPeek={() => peek(i, ci)}
                       delayIn={ci * 180}
@@ -480,13 +544,14 @@ export default function GameTable({ game }: { game: GameState }) {
 function CenterBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="text-center max-w-[300px]">
-      <div className="font-display text-gold text-[17px] mb-1">{title}</div>
+      <div className="font-display text-[17px] mb-1" style={{ color: "var(--tc-title, #e8c96a)" }}>{title}</div>
       {children}
     </div>
   );
 }
 function Msg({ children, dim }: { children: React.ReactNode; dim?: boolean }) {
-  return <div className={`text-[13px] leading-relaxed font-display italic min-h-[20px] ${dim ? "text-emerald-500/80" : "text-[#f0e6c8]"}`}>{children}</div>;
+  return <div className="text-[13px] leading-relaxed font-display italic min-h-[20px]"
+    style={{ color: dim ? "var(--tc-dim, #7da884cc)" : "var(--tc-msg, #f0e6c8)" }}>{children}</div>;
 }
 export function GoldBtn({ children, onClick, small, className = "" }: { children: React.ReactNode; onClick?: () => void; small?: boolean; className?: string }) {
   return (
