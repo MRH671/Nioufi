@@ -91,13 +91,50 @@ export default function ShopModal({ api, token, onBalance, onEquipped, onClose }
                 ${equipped ? "border-gold bg-gold/10" : "border-white/10 bg-white/4"}`}>
                 {/* Aperçu */}
                 {tt && (
-                  <div className="h-14 flex items-center justify-center rounded-lg" style={{ background: "rgba(0,0,0,.25)" }}>
+                  <div className="h-16 flex items-center justify-center rounded-lg" style={{ background: "rgba(0,0,0,.25)" }}>
                     <div style={{
-                      width: "82%", height: "78%",
+                      position: "relative",
+                      width: s.code === "boitier" ? "62%" : "84%",
+                      height: s.code === "boitier" ? "82%" : "78%",
                       borderRadius: tt.pRadius,
                       background: tt.surface,
                       border: `3px solid ${tt.pBorder}`,
-                    }} />
+                      overflow: "visible",
+                    }}>
+                      {s.code === "boitier" && (
+                        <>
+                          <div style={{ position: "absolute", left: "50%", top: 3, bottom: 3, width: 1.5, background: "rgba(0,0,0,.22)" }} />
+                          <div style={{ position: "absolute", top: 2, left: 3, width: 4, height: 4, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #cfccc2, #6e6a5e)" }} />
+                          <div style={{ position: "absolute", top: 2, right: 3, width: 4, height: 4, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #cfccc2, #6e6a5e)" }} />
+                          <div style={{ position: "absolute", bottom: 2, left: 3, width: 4, height: 4, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #cfccc2, #6e6a5e)" }} />
+                          <div style={{ position: "absolute", bottom: 2, right: 3, width: 4, height: 4, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #cfccc2, #6e6a5e)" }} />
+                          <div style={{
+                            position: "absolute", top: 2, right: 8, width: 14, height: 12,
+                            clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
+                            background: "linear-gradient(180deg,#f5c916,#dfae0a)",
+                            display: "flex", alignItems: "flex-end", justifyContent: "center",
+                            fontSize: 6, color: "#15150a",
+                          }}>⚡</div>
+                          <div style={{
+                            position: "absolute", top: "34%", left: "6%",
+                            transform: "rotate(-7deg) skewX(-6deg)",
+                            fontFamily: "'Segoe Script','Brush Script MT',cursive",
+                            fontSize: 8.5, fontWeight: 700, color: "rgba(28,28,110,.75)",
+                            whiteSpace: "nowrap",
+                          }}>Neuhof 67100</div>
+                          <div style={{
+                            position: "absolute", left: 5, bottom: 5, width: 22, height: 10, borderRadius: 1,
+                            background: "repeating-linear-gradient(180deg, rgba(0,0,0,.35) 0 2px, rgba(255,255,255,.1) 2px 4px)",
+                          }} />
+                        </>
+                      )}
+                      {s.code === "camping" && (
+                        <>
+                          <div style={{ position: "absolute", bottom: -9, left: "16%", width: 5, height: 10, borderRadius: "0 0 2px 2px", background: "linear-gradient(90deg,#fff,#c9ccc6)", boxShadow: "1px 2px 3px rgba(0,0,0,.4)" }} />
+                          <div style={{ position: "absolute", bottom: -9, right: "16%", width: 5, height: 10, borderRadius: "0 0 2px 2px", background: "linear-gradient(90deg,#fff,#c9ccc6)", boxShadow: "1px 2px 3px rgba(0,0,0,.4)" }} />
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {ct && (
