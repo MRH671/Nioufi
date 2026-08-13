@@ -334,27 +334,26 @@ export default function Home() {
         )}
 
         {tab === "account" && !token && (
-          <>
+          <form onSubmit={(e) => { e.preventDefault(); authRequest("login"); }}>
             <label className="block text-gold text-[11px] uppercase tracking-[.14em] mb-1">Pseudo</label>
             <input value={username} onChange={(e) => setUsername(e.target.value)} maxLength={20}
-              className={inputCls} placeholder="Pseudo" autoComplete="username" />
+              name="username" className={inputCls} placeholder="Pseudo" autoComplete="username" />
             <label className="block text-gold text-[11px] uppercase tracking-[.14em] mb-1 mt-3">Mot de passe</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && authRequest("login")}
-              className={inputCls} placeholder="••••••" autoComplete="current-password" />
+              name="password" className={inputCls} placeholder="••••••" autoComplete="current-password" />
             <div className="flex gap-2 mt-3">
-              <button onClick={() => authRequest("login")} disabled={busy}
+              <button type="submit" disabled={busy}
                 className="flex-1 py-2.5 rounded-xl font-extrabold text-[14px] text-[#241d05] disabled:opacity-50"
                 style={{ background: "linear-gradient(140deg,#caa32f,#eed780,#caa32f)" }}>
                 Se connecter
               </button>
-              <button onClick={() => authRequest("register")} disabled={busy}
+              <button type="button" onClick={() => authRequest("register")} disabled={busy}
                 className="flex-1 py-2.5 rounded-xl font-bold text-[13px] text-gray-200 bg-white/10 border border-white/20 disabled:opacity-50">
                 Créer un compte
               </button>
             </div>
             <p className="text-white/30 text-[11px] mt-2">500 jetons offerts à l'inscription. Ton solde est conservé.</p>
-          </>
+          </form>
         )}
 
         {tab === "account" && token && (
