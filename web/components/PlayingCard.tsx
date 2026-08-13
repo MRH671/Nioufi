@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Card } from "@/lib/types";
+import { cardTheme, type CardTheme } from "@/lib/skins";
 
 const RED = ["♥", "♦"];
 
 export default function PlayingCard({
-  card, faceUp, w = 36, highlight = false, peekable = false, onPeek, delayIn = 0,
+  card, faceUp, w = 36, highlight = false, peekable = false, onPeek, delayIn = 0, back,
 }: {
   card: Card | null;
   faceUp: boolean;
@@ -14,7 +15,9 @@ export default function PlayingCard({
   peekable?: boolean;
   onPeek?: () => void;
   delayIn?: number;
+  back?: CardTheme;
 }) {
+  const bk = back || cardTheme();
   const h = w * 1.45;
   const isRed = card && RED.includes(card.suit);
   const [mounted, setMounted] = useState(false);
@@ -59,8 +62,8 @@ export default function PlayingCard({
         <div style={{
           position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
           borderRadius: 6,
-          border: peekable ? "1px solid rgba(232,201,106,.85)" : "1px solid #5a1620",
-          background: "repeating-linear-gradient(45deg,#7a1f2b 0 6px,#8d2836 6px 12px)",
+          border: peekable ? "1px solid rgba(232,201,106,.85)" : `1px solid ${bk.border}`,
+          background: `repeating-linear-gradient(45deg,${bk.c1} 0 6px,${bk.c2} 6px 12px)`,
           boxShadow: peekable ? "0 0 8px rgba(232,201,106,.5)" : "0 2px 6px rgba(0,0,0,.45)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>

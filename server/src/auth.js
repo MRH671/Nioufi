@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList, friendLeaderboard } = require("./db");
+const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin } = require("./db");
 const presence = require("./presence");
 
 const router = express.Router();
@@ -92,7 +92,44 @@ router.get("/me", async (req, res) => {
   if (!user) return res.status(404).json({ error: "Compte introuvable." });
 
   const bonus = await bonusStatus(user.id);
-  res.json({ username: user.username, balance: user.balance, bonus });
+  const rescue = await rescueStatus(user.id);
+  res.json({
+    username: user.username, balance: user.balance, bonus, rescue,
+    skins: { table: user.equipped_table || "classic", cards: user.equipped_cards || "cards-classic" },
+  });
+});
+
+// ── Boutique ──
+router.get("/shop", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  res.json(await shopState(p.uid));
+});
+
+router.post("/shop/buy", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const r = await buySkin(p.uid, req.body?.code);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/shop/equip", async (req, res) => {
+  const p = requireAuth(req, res);
+  if (!p) return;
+  const r = await equipSkin(p.uid, req.body?.code);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+// ── Recharge de secours ──
+router.post("/rescue/claim", async (req, res) => {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: "Token invalide." });
+  const r = await claimRescue(payload.uid);
+  if (!r.granted) return res.status(409).json({ error: "Recharge indisponible (solde non nul ou cooldown en cours)." });
+  res.json(r);
 });
 
 // ── Réclamer le bonus quotidien ──
