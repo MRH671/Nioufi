@@ -21,6 +21,17 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_bonus_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_day INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_rescue_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS equipped_table TEXT NOT NULL DEFAULT 'classic'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS equipped_cards TEXT NOT NULL DEFAULT 'classic'`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_skins (
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      skin_code TEXT NOT NULL,
+      purchased_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, skin_code)
+    )
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS history (
       id SERIAL PRIMARY KEY,
@@ -40,6 +51,107 @@ async function initDb() {
     )
   `);
   console.log("🗄️  PostgreSQL prêt (tables users, history, friendships).");
+}
+
+// ─── Boutique de skins ────────────────────────────────────────────────────────
+// Catalogue côté serveur = source de vérité des prix.
+const SKINS = [
+  // Thèmes de table
+  { code: "classic",    type: "table", name: "Tapis classique",     price: 0 },
+  { code: "camping",    type: "table", name: "Table de camping",    price: 500 },
+  { code: "clandestin", type: "table", name: "Tripot clandestin",   price: 800 },
+  { code: "boitier",    type: "table", name: "Boîtier électrique",  price: 1200 },
+  { code: "casino",     type: "table", name: "Casino privé",        price: 2000 },
+  // Dos de cartes
+  { code: "cards-classic", type: "cards", name: "Rouge classique", price: 0 },
+  { code: "cards-azur",    type: "cards", name: "Azur",            price: 300 },
+  { code: "cards-emeraude",type: "cards", name: "Émeraude",        price: 800 },
+  { code: "cards-or",      type: "cards", name: "Or",              price: 800 },
+  { code: "cards-onyx",    type: "cards", name: "Onyx",            price: 1500 },
+];
+const skinByCode = (code) => SKINS.find((s) => s.code === code);
+
+/** Boutique : catalogue + possessions + équipés + solde */
+async function shopState(uid) {
+  if (!pool) return { skins: SKINS, owned: [], equipped: {}, balance: 0 };
+  const u = await pool.query("SELECT balance, equipped_table, equipped_cards FROM users WHERE id = $1", [uid]);
+  const owned = await pool.query("SELECT skin_code FROM user_skins WHERE user_id = $1", [uid]);
+  return {
+    skins: SKINS,
+    owned: owned.rows.map((r) => r.skin_code),
+    equipped: { table: u.rows[0]?.equipped_table || "classic", cards: u.rows[0]?.equipped_cards || "cards-classic" },
+    balance: u.rows[0]?.balance ?? 0,
+  };
+}
+
+/** Achat atomique : débit + possession dans une transaction */
+async function buySkin(uid, code) {
+  const skin = skinByCode(code);
+  if (!skin) return { error: "Skin inconnu." };
+  if (skin.price === 0) return { error: "Ce skin est gratuit, équipe-le directement." };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const owned = await client.query("SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_code = $2", [uid, code]);
+    if (owned.rows.length > 0) { await client.query("ROLLBACK"); return { error: "Tu possèdes déjà ce skin." }; }
+    const upd = await client.query(
+      "UPDATE users SET balance = balance - $2 WHERE id = $1 AND balance >= $2 RETURNING balance",
+      [uid, skin.price]
+    );
+    if (upd.rows.length === 0) { await client.query("ROLLBACK"); return { error: "Pas assez de jetons !" }; }
+    await client.query("INSERT INTO user_skins (user_id, skin_code) VALUES ($1, $2)", [uid, code]);
+    await client.query("COMMIT");
+    return { ok: true, balance: upd.rows[0].balance };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    return { error: "Achat impossible, réessaie." };
+  } finally {
+    client.release();
+  }
+}
+
+/** Équiper un skin possédé (ou gratuit) */
+async function equipSkin(uid, code) {
+  const skin = skinByCode(code);
+  if (!skin) return { error: "Skin inconnu." };
+  if (skin.price > 0) {
+    const owned = await pool.query("SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_code = $2", [uid, code]);
+    if (owned.rows.length === 0) return { error: "Tu ne possèdes pas ce skin." };
+  }
+  const col = skin.type === "table" ? "equipped_table" : "equipped_cards";
+  await pool.query(`UPDATE users SET ${col} = $2 WHERE id = $1`, [uid, code]);
+  return { ok: true };
+}
+
+// ─── Recharge de secours (solde à 0) ─────────────────────────────────────────
+const RESCUE_AMOUNT = 100;
+const RESCUE_COOLDOWN_H = 4;
+
+/** État de la recharge : dispo ? sinon dans combien de temps ? */
+async function rescueStatus(id) {
+  if (!pool) return { available: false };
+  const r = await pool.query("SELECT balance, last_rescue_at FROM users WHERE id = $1", [id]);
+  if (!r.rows[0]) return { available: false };
+  const { balance, last_rescue_at } = r.rows[0];
+  if (balance > 0) return { available: false, reason: "not_broke" };
+  const last = last_rescue_at ? new Date(last_rescue_at).getTime() : null;
+  const readyAt = last ? last + RESCUE_COOLDOWN_H * 3600 * 1000 : 0;
+  if (readyAt > Date.now()) return { available: false, reason: "cooldown", readyAt, amount: RESCUE_AMOUNT };
+  return { available: true, amount: RESCUE_AMOUNT };
+}
+
+/** Réclame la recharge (atomique : uniquement si solde = 0 et cooldown passé) */
+async function claimRescue(id) {
+  if (!pool) return { granted: false };
+  const r = await pool.query(
+    `UPDATE users SET balance = balance + $2, last_rescue_at = NOW()
+     WHERE id = $1 AND balance <= 0
+       AND (last_rescue_at IS NULL OR last_rescue_at < NOW() - INTERVAL '${RESCUE_COOLDOWN_H} hours')
+     RETURNING balance`,
+    [id, RESCUE_AMOUNT]
+  );
+  if (r.rows.length === 0) return { granted: false };
+  return { granted: true, amount: RESCUE_AMOUNT, balance: r.rows[0].balance };
 }
 
 // ─── Amis ─────────────────────────────────────────────────────────────────────
@@ -201,7 +313,7 @@ async function claimBonus(id) {
 
 async function getUser(id) {
   if (!pool) return null;
-  const r = await pool.query("SELECT id, username, balance FROM users WHERE id = $1", [id]);
+  const r = await pool.query("SELECT id, username, balance, equipped_table, equipped_cards FROM users WHERE id = $1", [id]);
   return r.rows[0] || null;
 }
 
@@ -224,4 +336,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends, friendLeaderboard };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin };
