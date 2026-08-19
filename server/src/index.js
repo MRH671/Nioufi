@@ -77,6 +77,18 @@ function afterReveal(room) {
   });
 }
 
+// ── Nettoyage : les tables où plus personne n'est connecté depuis 10 min sont fermées
+//    (libère aussi les comptes pour rejoindre une nouvelle table) ──
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of rooms) {
+    const abandoned = room.players.length === 0 || room.players.every((p) => !p.connected);
+    if (abandoned && now - (room.lastActivity || room.createdAt) > 10 * 60 * 1000) {
+      rooms.delete(code);
+    }
+  }
+}, 60 * 1000);
+
 // ── Tick des timers : exécute les actions expirées ──
 setInterval(() => {
   for (const [, room] of rooms) {
@@ -119,9 +131,22 @@ io.on("connection", (socket) => {
     cb?.(delivered ? { ok: true } : { ok: false, error: "Ton ami n'est pas en ligne." });
   });
 
+  /** Anti-triche : un compte ne peut être assis qu'à une seule table à la fois
+   *  (sinon deux tables chargent le même solde et la dernière sauvegarde écrase l'autre) */
+  const seatedElsewhere = (userId, exceptCode) => {
+    if (!userId) return null;
+    for (const [code, r] of rooms) {
+      if (code === exceptCode) continue;
+      if (r.players.some((p) => p.userId === userId)) return code;
+    }
+    return null;
+  };
+
   socket.on("createRoom", async (payload, cb) => {
     const id = await resolveIdentity(payload || {});
     if (id.error) return cb?.({ ok: false, error: id.error });
+    const other = seatedElsewhere(id.userId, null);
+    if (other) return cb?.({ ok: false, error: `Ton compte est déjà à la table ${other}. Quitte-la d'abord.` });
     const room = new Room(id.key, id.name, id.coins, id.userId);
     rooms.set(room.code, room);
     socket.data.code = room.code;
@@ -136,6 +161,8 @@ io.on("connection", (socket) => {
     if (!room) return cb?.({ ok: false, error: "Table introuvable. Vérifie le code." });
     const id = await resolveIdentity(payload || {});
     if (id.error) return cb?.({ ok: false, error: id.error });
+    const other = seatedElsewhere(id.userId, room.code);
+    if (other) return cb?.({ ok: false, error: `Ton compte est déjà à la table ${other}. Quitte-la d'abord.` });
     const r = room.join(id.key, id.name, id.coins, id.userId);
     if (!r.ok) return cb?.(r);
     socket.data.code = room.code;
@@ -149,6 +176,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(socket.data.code);
     if (!room) return cb?.({ ok: false, error: "Table fermée." });
     const r = fn(room, payload);
+    room.lastActivity = Date.now();
     cb?.(r);
     if (r.ok) broadcast(room);
     return r;
