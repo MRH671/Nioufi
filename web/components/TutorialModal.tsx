@@ -55,6 +55,13 @@ export default function TutorialModal({ onClose }: { onClose: () => void }) {
             de la deuxième. La banque change aussi si elle est ruinée.
           </Section>
 
+          <Section title="👻 La maison morte">
+            À <b>2 joueurs</b>, une main fantôme sans propriétaire rejoint la table : la
+            <b className="text-gold"> maison morte</b>. Elle reçoit ses cartes comme tout le monde
+            et on peut miser dessus — si elle bat la banque, les parieurs gagnent. Et si elle fait
+            9, celui qui a misé dessus peut prendre la banque !
+          </Section>
+
           <Section title="🪙 Les jetons">
             En invité : 100 jetons le temps d'une session. Avec un compte : ton solde est
             <b> conservé</b>, tu touches un <b className="text-gold">bonus quotidien</b> qui grimpe

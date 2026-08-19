@@ -61,6 +61,7 @@ class Room {
     this.nineWinner = -1;
     this.bankQueue = [];   // prétendants à la banque (parieurs sur la maison à 9)
     this.nineHouse = -1;
+    this.ghostActive = false; // maison morte 👻 (tables à 2 joueurs)
     this.revealAt = null;
     this.feed = [];
     this.deadline = null; // timestamp limite de l'action en cours
@@ -160,6 +161,9 @@ class Room {
     this.nineWinner = -1;
     this.bankQueue = [];
     this.nineHouse = -1;
+    // À 2 joueurs, une maison morte 👻 rejoint la table : une main sans
+    // propriétaire sur laquelle tout le monde peut miser.
+    this.ghostActive = this.n() === 2;
     this.revealAt = null;
     this.phase = "cutting";
     this.deadline = Date.now() + T.CUT;
@@ -194,9 +198,10 @@ class Room {
 
     // Distribution : 1 carte cachée à chacun, banque en dernier
     const order = this.dealOrder();
-    this.hands = Array(this.n()).fill(null).map(() => []);
+    this.hands = Array(this.n() + (this.ghostActive ? 1 : 0)).fill(null).map(() => []);
     order.forEach((pIdx, step) => this.hands[pIdx].push(this.deck[step]));
-    this._deckPos = this.n();
+    this._deckPos = order.length;
+    if (this.ghostActive) this.pushFeed("👻 La maison morte est de la partie — on peut miser dessus !");
     this.betIdx = this.firstBettor();
     this.phase = "betting";
     this.deadline = Date.now() + T.BET;
@@ -226,9 +231,18 @@ class Room {
     return -1;
   }
 
+  /** Index de la maison morte dans hands (= n) quand elle est active */
+  ghostIdx() { return this.ghostActive ? this.n() : -1; }
+
+  houseLabel(i) {
+    return i === this.ghostIdx() ? "la maison morte 👻" : `la maison de ${this.players[i]?.name}`;
+  }
+
   dealOrder() {
     const order = [];
-    for (let k = 1; k <= this.n(); k++) order.push((this.bankIdx + k) % this.n());
+    for (let k = 1; k < this.n(); k++) order.push((this.bankIdx + k) % this.n());
+    if (this.ghostActive) order.push(this.ghostIdx()); // la maison morte est servie juste avant la banque
+    order.push(this.bankIdx);
     return order; // gauche de la banque → banque en dernier
   }
 
@@ -261,7 +275,9 @@ class Room {
   placeBet(key, house, amount) {
     const me = this.idx(key);
     if (this.phase !== "betting" || me !== this.betIdx) return { ok: false, error: "Pas ton tour." };
-    if (house === this.bankIdx || house < 0 || house >= this.n()) return { ok: false, error: "Maison invalide." };
+    house = Math.floor(Number(house));
+    const isGhostHouse = house === this.ghostIdx() && this.ghostActive;
+    if (house === this.bankIdx || (!isGhostHouse && (house < 0 || house >= this.n()))) return { ok: false, error: "Maison invalide." };
     amount = Math.floor(Number(amount));
     if (!amount || amount < 1) return { ok: false, error: "Mise invalide." };
     const avail = this.players[me].coins - this.committed(me);
@@ -276,7 +292,7 @@ class Room {
 
     this.bets.push({ bettor: me, house, amount });
     this.deadline = Date.now() + T.BET;
-    this.pushFeed(`💰 ${this.players[me].name} mise ${amount} sur ${house === me ? "sa maison" : "la maison de " + this.players[house].name}`);
+    this.pushFeed(`💰 ${this.players[me].name} mise ${amount} sur ${house === me ? "sa maison" : this.houseLabel(house)}`);
     return { ok: true };
   }
 
@@ -321,7 +337,9 @@ class Room {
     else allowed = cardIdx === 0;                                        // 1ère carte des autres maisons
     if (!allowed) return { ok: false, error: "Tu ne peux pas voir cette carte." };
 
-    const target = playerIdx === me ? "ses cartes" : `la carte de ${this.players[playerIdx].name}`;
+    const target = playerIdx === me ? "ses cartes"
+      : playerIdx === this.ghostIdx() ? "la carte de la maison morte"
+      : `la carte de ${this.players[playerIdx].name}`;
     this.pushFeed(`👁 ${this.players[me].name} regarde ${target}`);
     return { ok: true, card, playerIdx, cardIdx };
   }
@@ -341,9 +359,9 @@ class Room {
     }
     this.players = this.players.map((p, i) => ({ ...p, coins: p.coins + deltas[i] }));
     this.results = scores.map((s, i) => ({
-      score: s, delta: deltas[i],
+      score: s, delta: deltas[i] ?? 0,
       win: i !== this.bankIdx && bs !== 9 && s > bs,
-      role: i === this.bankIdx ? "bank" : "player",
+      role: i === this.bankIdx ? "bank" : i === this.ghostIdx() ? "ghost" : "player",
     }));
     // ── Qui peut prendre la banque ? ──
     // Règle : il faut avoir MISÉ sur une maison qui fait 9 (posséder la maison ne suffit pas).
@@ -373,7 +391,7 @@ class Room {
           if (!this.bankQueue.some((q) => q.p === p)) this.bankQueue.push({ p, house: nineHouse });
         }
         if (totals.size === 0) {
-          this.pushFeed(`⭐ La maison de ${this.players[nineHouse].name} fait 9... mais personne n'avait misé dessus !`);
+          this.pushFeed(`⭐ ${this.houseLabel(nineHouse).charAt(0).toUpperCase() + this.houseLabel(nineHouse).slice(1)} fait 9... mais personne n'avait misé dessus !`);
         }
       }
     }
@@ -381,14 +399,13 @@ class Room {
     if (this.nineWinner !== -1) {
       const first = this.bankQueue[0];
       const w = this.players[first.p].name;
-      const h = this.players[first.house].name;
       this.pushFeed(first.p === first.house
         ? `⭐ ${w} a misé sur sa maison qui fait 9 — il peut prendre la banque !`
-        : `⭐ ${w} avait misé sur la maison de ${h} qui fait 9 — il peut prendre la banque !`);
+        : `⭐ ${w} avait misé sur ${this.houseLabel(first.house)} qui fait 9 — il peut prendre la banque !`);
     }
     this.revealAt = Date.now();
     this.phase = "revealing";
-    this.deadline = this.revealAt + 1500 * (this.n() + 1) + T.DECIDE;
+    this.deadline = this.revealAt + 1500 * (this.hands.length + 1) + T.DECIDE;
     this.pushFeed(`🔥 ${this.players[this.bankIdx].name} retourne les cartes !`);
     return { ok: true };
   }
@@ -413,7 +430,7 @@ class Room {
         this.nineWinner = next.p;
         this.deadline = Date.now() + T.DECIDE;
         this.pushFeed(next.house !== cur.house
-          ? `⭐ La main passe à la maison de ${this.players[next.house].name} (9 aussi !) — à ${this.players[next.p].name} de décider`
+          ? `⭐ La main passe à ${this.houseLabel(next.house)} (9 aussi !) — à ${this.players[next.p].name} de décider`
           : `⭐ À ${this.players[next.p].name} de décider — il avait aussi misé sur la maison gagnante !`);
         return { ok: true };
       }
@@ -510,6 +527,7 @@ class Room {
       betIdx: this.betIdx,
       results: this.results,
       nineWinner: this.nineWinner,
+      ghostIdx: this.ghostIdx(),
       revealAt: this.revealAt,
       deadline: this.deadline,
       feed: this.feed,

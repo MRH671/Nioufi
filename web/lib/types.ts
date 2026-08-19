@@ -27,6 +27,7 @@ export type GameState = {
   betIdx: number;
   results: Result[] | null;
   nineWinner: number;
+  ghostIdx: number;
   revealAt: number | null;
   deadline: number | null;
   feed: { t: number; msg: string }[];

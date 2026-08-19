@@ -29,6 +29,12 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const n = game.players.length;
+  const gIdx = game.ghostIdx ?? -1;
+  type Seat = { name: string; coins: number; connected: boolean; ghost?: boolean };
+  const seats: Seat[] = gIdx >= 0
+    ? [...game.players, { name: "Maison morte", coins: 0, connected: true, ghost: true }]
+    : game.players;
+  const total = seats.length;
   const myIdx = game.myIdx;
   const isBank = myIdx === game.bankIdx;
 
@@ -160,10 +166,11 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
   if (game.bankIdx !== null) {
     revealOrder.push(game.bankIdx);
     for (let k = 1; k < n; k++) revealOrder.push((game.bankIdx + k) % n);
+    if (gIdx >= 0) revealOrder.push(gIdx);
   }
   const isRevealed = (pIdx: number) =>
     game.phase === "revealing" && revealOrder.indexOf(pIdx) < revealStep;
-  const allRevealed = game.phase === "revealing" && revealStep >= n;
+  const allRevealed = game.phase === "revealing" && revealStep >= total;
 
   // ── Cérémonie : cartes visibles au step courant ──
   const ceremonyCards: (Card | null)[] = Array(n).fill(null);
@@ -252,6 +259,13 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
                   {i === myIdx ? "🏠 Moi" : p.name}
                 </button>
               ))}
+              {gIdx >= 0 && (
+                <button onClick={() => setBetHouse(gIdx)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border border-gold/40
+                    ${(betHouse ?? myIdx) === gIdx ? "bg-gold text-[#241d05]" : "bg-black/30 text-emerald-100"}`}>
+                  👻 Maison morte
+                </button>
+              )}
             </div>
             <div className="flex gap-1.5 justify-center flex-wrap mb-1.5">
               {[5, 10, 20, 50].filter((v) => v <= avail).map((v) => (
@@ -286,7 +300,7 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
     );
   } else if (game.phase === "revealing") {
     const bs = game.results?.[game.bankIdx!]?.score;
-    const currentIdx = revealStep > 0 && revealStep <= n ? revealOrder[revealStep - 1] : null;
+    const currentIdx = revealStep > 0 && revealStep <= total ? revealOrder[revealStep - 1] : null;
     const cs = currentIdx !== null ? game.results?.[currentIdx]?.score : null;
     center = (
       <CenterBox title={allRevealed ? "Résultats" : "Retournement..."}>
@@ -294,7 +308,7 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
           <Msg>
             {currentIdx === game.bankIdx
               ? `🏦 La banque retourne... ${cs}${cs === 9 ? " !! NIOUFI !" : cs === 0 ? " — bouteille !" : " points. À battre !"}`
-              : `${game.players[currentIdx].name}... ${cs}${cs === 9 ? " ⭐ NIOUFI !" : cs === 0 ? " 💀 bouteille" : " pts"}`}
+              : `${currentIdx === gIdx ? "👻 La maison morte" : game.players[currentIdx]?.name}... ${cs}${cs === 9 ? " ⭐ NIOUFI !" : cs === 0 ? " 💀 bouteille" : " pts"}`}
           </Msg>
         )}
         {allRevealed && (
@@ -460,9 +474,10 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
         </div>
 
         {/* Sièges */}
-        {game.players.map((p, i) => {
-          const pos = seatPosition((i - myIdx + n) % n, n, W, H);
+        {seats.map((p, i) => {
+          const pos = seatPosition((i - myIdx + total) % total, total, W, H);
           const isB = i === game.bankIdx;
+          const isGhost = i === gIdx;
           const isHi = (game.phase === "betting" && i === game.betIdx) || (game.phase === "cutting" && i === game.cutterIdx);
           const r = (allRevealed || isRevealed(i)) ? game.results?.[i] : null;
           const hand = game.hands?.[i] || [];
@@ -497,16 +512,19 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
               {/* Plaque nom */}
               <div className={`px-2.5 py-0.5 rounded-full text-center border
                 ${isB ? "bg-gradient-to-br from-[#3a2e08] to-[#57470f] border-gold" :
+                  isGhost ? "bg-black/40 border-white/25 border-dashed" :
                   i === myIdx ? "bg-black/60 border-gold/50" : "bg-black/60 border-white/15"}
                 ${!p.connected ? "opacity-50" : ""}`}>
                 <div className={`font-bold text-[11px] whitespace-nowrap max-w-[90px] overflow-hidden text-ellipsis
-                  ${isB ? "text-gold" : "text-gray-100"}`}>
-                  {isB ? "🏦 " : ""}{i === game.cutterIdx && !isB ? "✂️ " : ""}{p.name}{i === myIdx ? " ●" : ""}{!p.connected ? " ⚡" : ""}
+                  ${isB ? "text-gold" : isGhost ? "text-white/70 italic" : "text-gray-100"}`}>
+                  {isB ? "🏦 " : ""}{isGhost ? "👻 " : ""}{i === game.cutterIdx && !isB && !isGhost ? "✂️ " : ""}{p.name}{i === myIdx ? " ●" : ""}{!p.connected ? " ⚡" : ""}
                 </div>
-                <div className="text-emerald-400/90 text-[10px]">
-                  {p.coins} 🪙
-                  {r && <span className={`font-bold ${r.delta >= 0 ? "text-green-400" : "text-red-400"}`}> {r.delta > 0 ? "+" : ""}{r.delta}</span>}
-                </div>
+                {!isGhost && (
+                  <div className="text-emerald-400/90 text-[10px]">
+                    {p.coins} 🪙
+                    {r && <span className={`font-bold ${r.delta >= 0 ? "text-green-400" : "text-red-400"}`}> {r.delta > 0 ? "+" : ""}{r.delta}</span>}
+                  </div>
+                )}
               </div>
 
               {/* Mises sur cette maison */}
