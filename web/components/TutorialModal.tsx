@@ -38,7 +38,8 @@ export default function TutorialModal({ onClose }: { onClose: () => void }) {
 
           <Section title="🎲 Une manche">
             1. La banque distribue <b>1 carte cachée</b> à chacun.<br />
-            2. Chaque joueur <b>mise</b> — sur sa propre maison ou sur celle des autres !
+            2. Chaque joueur <b>mise</b> — sur sa propre maison ou sur celle des autres,
+            et tu peux poser plusieurs mises sur plusieurs maisons avant de valider !
             Tu peux jeter un œil 👁 à ta carte et à la première carte des autres maisons
             (jamais celle de la banque) pour décider.<br />
             3. La banque distribue <b>2 cartes de plus</b> à chacun.<br />
