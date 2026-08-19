@@ -12,7 +12,7 @@ function seatPosition(index: number, total: number, W: number, H: number) {
   return { x: W / 2 + W * 0.4 * Math.cos(angle), y: H / 2 + H * 0.38 * Math.sin(angle) };
 }
 
-export default function GameTable({ game, skins, onLeave }: { game: GameState; skins?: { table: string; cards: string }; onLeave?: () => void }) {
+export default function GameTable({ game, skins, onLeave, onSuggest }: { game: GameState; skins?: { table: string; cards: string }; onLeave?: () => void; onSuggest?: () => void }) {
   const th = tableTheme(skins?.table);
   const ct = cardTheme(skins?.cards);
   const socket = getSocket();
@@ -353,6 +353,11 @@ export default function GameTable({ game, skins, onLeave }: { game: GameState; s
           <button onClick={toggleSound} className="text-base leading-none px-1" title={soundOn ? "Couper le son" : "Activer le son"}>
             {soundOn ? "🔊" : "🔇"}
           </button>
+          {onSuggest && (
+            <button onClick={onSuggest} className="text-base leading-none px-1" title="Une idée, un bug ?">
+              💡
+            </button>
+          )}
           {onLeave && (
             <button onClick={() => { if (window.confirm("Quitter la partie ? Ton siège restera à la table jusqu'à la fin de la manche.")) onLeave(); }}
               className="text-base leading-none px-1" title="Quitter la table">

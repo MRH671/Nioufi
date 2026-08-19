@@ -30,6 +30,7 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [mySkins, setMySkins] = useState<{ table: string; cards: string }>({ table: "classic", cards: "cards-classic" });
   const [invite, setInvite] = useState<{ from: string; code: string } | null>(null);
   const [joinCode, setJoinCode] = useState("");
@@ -90,6 +91,17 @@ export default function Home() {
       if (!r.ok) localStorage.removeItem("nioufi_room"); // table fermée ou partie finie
     });
   }, [connected, game, token]);
+
+  // Message de bienvenue à la première visite
+  useEffect(() => {
+    if (!localStorage.getItem("nioufi_welcome")) setShowWelcome(true);
+  }, []);
+
+  const closeWelcome = (openSuggestion: boolean) => {
+    localStorage.setItem("nioufi_welcome", "1");
+    setShowWelcome(false);
+    if (openSuggestion) setShowSuggestion(true);
+  };
 
   // S'identifier auprès du socket (présence en ligne + invitations)
   useEffect(() => {
@@ -211,6 +223,35 @@ export default function Home() {
         <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
       )}
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      {showWelcome && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/80">
+          <div className="w-full max-w-[400px] rounded-2xl p-5 border border-gold/40"
+            style={{ background: "radial-gradient(ellipse at 50% 0%, #1e3324 0%, #0c1810 90%)", boxShadow: "0 0 60px rgba(232,201,106,.12)" }}>
+            <div className="font-display text-gold text-[24px] mb-2">Bienvenue au Nioufi ! 🃏</div>
+            <div className="text-emerald-50/85 text-[13.5px] leading-relaxed space-y-2">
+              <p>Le jeu est en <b className="text-gold">phase de test</b> — et c'est toi qui vas le faire grandir.</p>
+              <p>Joue le jeu à fond avec tes potes, et balance tes retours avec le bouton
+                <b className="text-gold"> 💡</b> (sur l'accueil et en jeu) :</p>
+              <p className="text-emerald-300/85 text-[12.5px]">
+                • une règle à améliorer ou qui manque<br />
+                • un bug ou un truc pas clair<br />
+                • des idées de skins de tables ou de cartes<br />
+                • tout ce qui te passe par la tête !
+              </p>
+              <p>On lit chaque message. 🙏</p>
+            </div>
+            <button onClick={() => closeWelcome(false)}
+              className="w-full mt-4 py-2.5 rounded-xl font-extrabold text-[14px] text-[#241d05]"
+              style={{ background: "linear-gradient(140deg,#caa32f,#eed780,#caa32f)" }}>
+              🃏 C'est parti !
+            </button>
+            <button onClick={() => closeWelcome(true)}
+              className="w-full mt-2 py-2 rounded-xl text-[12.5px] font-bold text-gold bg-gold/8 border border-gold/25">
+              💡 J'ai déjà une idée
+            </button>
+          </div>
+        </div>
+      )}
       {showSuggestion && (
         <SuggestionModal api={API} token={token} onClose={() => setShowSuggestion(false)} />
       )}
@@ -304,7 +345,13 @@ export default function Home() {
   }
 
   // ── En jeu ──
-  if (game) return <GameTable game={game} skins={mySkins} onLeave={leaveTable} />;
+  if (game) return (
+    <>
+      {modals}
+      <GameTable game={game} skins={mySkins} onLeave={leaveTable}
+        onSuggest={() => setShowSuggestion(true)} />
+    </>
+  );
 
   // ── Accueil ──
   const inputCls = "w-full rounded-xl px-3 py-2.5 bg-black/35 border border-gold/25 text-white text-[15px] outline-none";
