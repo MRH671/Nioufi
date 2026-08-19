@@ -62,6 +62,7 @@ class Room {
     this.bankQueue = [];   // prétendants à la banque (parieurs sur la maison à 9)
     this.nineHouse = -1;
     this.ghostActive = false; // maison morte 👻 (tables à 2 joueurs)
+    this.openHouses = [];  // maisons sans mise → cartes dévoilées après les paris
     this.revealAt = null;
     this.feed = [];
     this.deadline = null; // timestamp limite de l'action en cours
@@ -164,6 +165,7 @@ class Room {
     // À 2 joueurs, une maison morte 👻 rejoint la table : une main sans
     // propriétaire sur laquelle tout le monde peut miser.
     this.ghostActive = this.n() === 2;
+    this.openHouses = [];
     this.revealAt = null;
     this.phase = "cutting";
     this.deadline = Date.now() + T.CUT;
@@ -313,6 +315,13 @@ class Room {
       this.deadline = Date.now() + T.PRE_REVEAL;
       const total = this.bets.reduce((s, b) => s + b.amount, 0);
       this.pushFeed(`🏦 La banque couvre ${total} jetons. 2 cartes pour tout le monde !`);
+
+      // Les maisons sans aucune mise n'ont rien en jeu → cartes dévoilées à tous
+      const houses = this.dealOrder().filter((i) => i !== this.bankIdx);
+      this.openHouses = houses.filter((h) => !this.bets.some((b) => b.house === h));
+      for (const h of this.openHouses) {
+        this.pushFeed(`🂠 Aucune mise sur ${this.houseLabel(h)} — ses cartes sont dévoilées !`);
+      }
     } else {
       this.pushFeed(`✓ ${this.players[me].name} a terminé ses mises`);
       this.betIdx = next;
@@ -521,7 +530,7 @@ class Room {
       ceremony: this.ceremony ? { steps: this.ceremony.steps, startedAt: this.ceremony.startedAt } : null,
       // Mains : seulement le NOMBRE de cartes, sauf en phase revealing où tout est public
       hands: this.hands
-        ? this.hands.map((h) => (revealed ? h : h.map(() => null)))
+        ? this.hands.map((h, i) => (revealed || this.openHouses.includes(i) ? h : h.map(() => null)))
         : null,
       bets: this.bets,
       betIdx: this.betIdx,

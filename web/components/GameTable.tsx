@@ -501,7 +501,7 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
                   const shown = publicCard ?? peekedCard ?? null;
                   return (
                     <PlayingCard key={ci} card={shown} w={32} back={ct}
-                      faceUp={!!shown && (isRevealed(i) || allRevealed || !!peekedCard)}
+                      faceUp={!!shown && (game.phase !== "revealing" || isRevealed(i) || allRevealed || !!peekedCard)}
                       peekable={canPeek(i, ci)} onPeek={() => peek(i, ci)}
                       delayIn={ci * 180}
                       highlight={r?.score === 9} />
