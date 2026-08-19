@@ -46,10 +46,13 @@ export default function TutorialModal({ onClose }: { onClose: () => void }) {
             Toute mise sur une maison qui bat la banque est gagnée !
           </Section>
 
-          <Section title="⭐ Faire 9">
-            Si tu fais 9 (et pas la banque), tu gagnes ta mise <b>et</b> tu peux choisir
-            de <b className="text-gold">prendre la banque</b> pour la manche suivante.
-            La banque change aussi si elle est ruinée.
+          <Section title="⭐ Prendre la banque">
+            Quand une maison fait 9 (et pas la banque), ceux qui ont <b>misé dessus</b> peuvent
+            <b className="text-gold"> prendre la banque</b> — posséder la maison ne suffit pas,
+            il faut avoir parié ! Priorité : le propriétaire s'il a misé sur sa maison, sinon
+            le plus gros parieur, puis les suivants s'il refuse. Si deux maisons font 9, priorité aux
+            parieurs de la première servie — s'ils refusent tous, la main passe à ceux
+            de la deuxième. La banque change aussi si elle est ruinée.
           </Section>
 
           <Section title="🪙 Les jetons">

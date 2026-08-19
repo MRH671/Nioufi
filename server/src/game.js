@@ -59,6 +59,8 @@ class Room {
     this.betIdx = -1;
     this.results = null;   // [{score, delta, win, role}]
     this.nineWinner = -1;
+    this.bankQueue = [];   // prétendants à la banque (parieurs sur la maison à 9)
+    this.nineHouse = -1;
     this.revealAt = null;
     this.feed = [];
     this.deadline = null; // timestamp limite de l'action en cours
@@ -143,6 +145,8 @@ class Room {
     this.betIdx = -1;
     this.results = null;
     this.nineWinner = -1;
+    this.bankQueue = [];
+    this.nineHouse = -1;
     this.revealAt = null;
     this.phase = "cutting";
     this.deadline = Date.now() + T.CUT;
@@ -300,7 +304,47 @@ class Room {
       win: i !== this.bankIdx && bs !== 9 && s > bs,
       role: i === this.bankIdx ? "bank" : "player",
     }));
-    this.nineWinner = bs !== 9 ? scores.findIndex((s, i) => s === 9 && i !== this.bankIdx) : -1;
+    // ── Qui peut prendre la banque ? ──
+    // Règle : il faut avoir MISÉ sur une maison qui fait 9 (posséder la maison ne suffit pas).
+    // Si plusieurs maisons font 9 : priorité à la première dans le sens de la distribution,
+    // mais si tous ses parieurs refusent, la main passe aux parieurs de la suivante.
+    // Sur chaque maison : le propriétaire s'il a misé dessus, sinon le plus gros parieur, etc.
+    this.bankQueue = []; // [{ p: joueur, house: maison à 9 concernée }]
+    if (bs !== 9) {
+      const nineHouses = this.dealOrder().filter((i) => i !== this.bankIdx && scores[i] === 9);
+      for (const nineHouse of nineHouses) {
+        const totals = new Map();
+        this.bets.forEach((b, order) => {
+          if (b.house !== nineHouse) return;
+          const t = totals.get(b.bettor) || { amount: 0, order };
+          t.amount += b.amount;
+          totals.set(b.bettor, t);
+        });
+        const owner = totals.has(nineHouse) ? [nineHouse] : [];
+        const others = [...totals.keys()]
+          .filter((p) => p !== nineHouse)
+          .sort((a, b) => {
+            const ta = totals.get(a), tb = totals.get(b);
+            return tb.amount - ta.amount || ta.order - tb.order;
+          });
+        for (const p of [...owner, ...others]) {
+          // Un joueur qui a misé sur plusieurs maisons à 9 n'apparaît qu'une fois (1er refus = refus)
+          if (!this.bankQueue.some((q) => q.p === p)) this.bankQueue.push({ p, house: nineHouse });
+        }
+        if (totals.size === 0) {
+          this.pushFeed(`⭐ La maison de ${this.players[nineHouse].name} fait 9... mais personne n'avait misé dessus !`);
+        }
+      }
+    }
+    this.nineWinner = this.bankQueue.length > 0 ? this.bankQueue[0].p : -1;
+    if (this.nineWinner !== -1) {
+      const first = this.bankQueue[0];
+      const w = this.players[first.p].name;
+      const h = this.players[first.house].name;
+      this.pushFeed(first.p === first.house
+        ? `⭐ ${w} a misé sur sa maison qui fait 9 — il peut prendre la banque !`
+        : `⭐ ${w} avait misé sur la maison de ${h} qui fait 9 — il peut prendre la banque !`);
+    }
     this.revealAt = Date.now();
     this.phase = "revealing";
     this.deadline = this.revealAt + 1500 * (this.n() + 1) + T.DECIDE;
@@ -311,11 +355,29 @@ class Room {
   // ── Décision de banque après un 9 / fin de manche ──
   decideBank(key, takeIt, system = false) {
     if (this.phase !== "revealing") return { ok: false, error: "Pas maintenant." };
-    const me = system ? -99 : this.idx(key);
+    const me = system ? this.nineWinner : this.idx(key);
     if (system) takeIt = false;
-    // Qui a le droit de décider : le gagnant du 9, sinon la banque
+    // Qui a le droit de décider : le prétendant en cours, sinon la banque
     if (!system && this.nineWinner !== -1 && me !== this.nineWinner) return { ok: false, error: "Ce n'est pas à toi de décider." };
     if (!system && this.nineWinner === -1 && me !== this.bankIdx) return { ok: false, error: "Seule la banque continue." };
+
+    // Refus → on propose au prétendant suivant de la file
+    // (parieurs de la 1re maison à 9 d'abord, puis ceux de la maison suivante)
+    if (!takeIt && this.nineWinner !== -1) {
+      const pos = this.bankQueue.findIndex((q) => q.p === this.nineWinner);
+      const cur = this.bankQueue[pos];
+      const next = this.bankQueue[pos + 1];
+      this.pushFeed(`🙅 ${this.players[this.nineWinner].name} laisse la banque`);
+      if (next !== undefined) {
+        this.nineWinner = next.p;
+        this.deadline = Date.now() + T.DECIDE;
+        this.pushFeed(next.house !== cur.house
+          ? `⭐ La main passe à la maison de ${this.players[next.house].name} (9 aussi !) — à ${this.players[next.p].name} de décider`
+          : `⭐ À ${this.players[next.p].name} de décider — il avait aussi misé sur la maison gagnante !`);
+        return { ok: true };
+      }
+      this.nineWinner = -1; // plus personne : la banque reste
+    }
 
     let b = this.bankIdx;
     if (takeIt && this.nineWinner === me) {

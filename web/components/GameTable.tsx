@@ -314,7 +314,7 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
                 </div>
               </div>
             ) : game.nineWinner >= 0 ? (
-              <Msg dim>{game.players[game.nineWinner].name} a fait 9... il décide s'il prend la banque.</Msg>
+              <Msg dim>{game.players[game.nineWinner].name} avait misé sur la maison à 9... il décide s'il prend la banque.</Msg>
             ) : isBank ? (
               <GoldBtn onClick={() => emit("decideBank", { takeIt: false })}>🃏 Manche suivante</GoldBtn>
             ) : (
