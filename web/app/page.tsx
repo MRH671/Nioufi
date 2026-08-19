@@ -9,6 +9,7 @@ import TutorialModal from "@/components/TutorialModal";
 import FriendsModal from "@/components/FriendsModal";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import ShopModal from "@/components/ShopModal";
+import SuggestionModal from "@/components/SuggestionModal";
 
 const API = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
@@ -28,6 +29,7 @@ export default function Home() {
   const [showFriends, setShowFriends] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(false);
   const [mySkins, setMySkins] = useState<{ table: string; cards: string }>({ table: "classic", cards: "cards-classic" });
   const [invite, setInvite] = useState<{ from: string; code: string } | null>(null);
   const [joinCode, setJoinCode] = useState("");
@@ -209,6 +211,9 @@ export default function Home() {
         <HistoryModal api={API} token={token} onClose={() => setShowHistory(false)} />
       )}
       {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+      {showSuggestion && (
+        <SuggestionModal api={API} token={token} onClose={() => setShowSuggestion(false)} />
+      )}
       {showShop && token && (
         <ShopModal api={API} token={token}
           onBalance={(b) => setBalance(b)}
@@ -443,6 +448,10 @@ export default function Home() {
         <button onClick={() => setShowTutorial(true)}
           className="w-full mt-4 py-2 rounded-xl text-[12.5px] font-bold text-emerald-100 bg-white/5 border border-white/15">
           ❓ Tutoriel — apprendre les règles
+        </button>
+        <button onClick={() => setShowSuggestion(true)}
+          className="w-full mt-2 py-2 rounded-xl text-[12.5px] font-bold text-gold bg-gold/8 border border-gold/25">
+          💡 Une idée, un bug ? Dis-nous tout
         </button>
 
         <div className={`mt-3 text-center text-[11px] rounded-lg py-1.5 px-2.5 bg-black/25

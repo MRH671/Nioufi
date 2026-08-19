@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin } = require("./db");
+const { pool, getUserByName, getUser, createUser, bonusStatus, claimBonus, getHistory, friendRequest, friendRespond, friendRemove, friendList, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin, addSuggestion } = require("./db");
 const presence = require("./presence");
 
 const router = express.Router();
@@ -204,6 +204,29 @@ router.get("/leaderboard", async (req, res) => {
       online: presence.isOnline(r.id),
     })),
   });
+});
+
+// ── Suggestions (test) : ouvertes aux invités, limitées à 5/heure par IP ──
+const suggTimes = new Map();
+router.post("/suggestions", async (req, res) => {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const recent = (suggTimes.get(ip) || []).filter((t) => now - t < 3600 * 1000);
+  if (recent.length >= 5) return res.status(429).json({ error: "Doucement ! Réessaie dans un moment." });
+
+  const content = (req.body?.content || "").trim();
+  if (content.length < 5) return res.status(400).json({ error: "Dis-nous en un peu plus !" });
+
+  // Auteur : compte connecté si token, sinon nom libre
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const payload = token ? verifyToken(token) : null;
+  const author = payload?.username || (req.body?.author || "").trim() || "anonyme";
+
+  const r = await addSuggestion(payload?.uid || null, author, content);
+  if (r.error) return res.status(503).json(r);
+  recent.push(now);
+  suggTimes.set(ip, recent);
+  res.json({ ok: true });
 });
 
 module.exports = { router, verifyToken };

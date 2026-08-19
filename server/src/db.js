@@ -50,7 +50,26 @@ async function initDb() {
       UNIQUE(requester, addressee)
     )
   `);
-  console.log("🗄️  PostgreSQL prêt (tables users, history, friendships).");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS suggestions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      author TEXT,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  console.log("🗄️  PostgreSQL prêt (tables users, history, friendships, suggestions).");
+}
+
+// ─── Suggestions (période de test) ───────────────────────────────────────────
+async function addSuggestion(userId, author, content) {
+  if (!pool) return { error: "Indisponible." };
+  await pool.query(
+    "INSERT INTO suggestions (user_id, author, content) VALUES ($1, $2, $3)",
+    [userId, (author || "anonyme").slice(0, 30), content.slice(0, 1000)]
+  );
+  return { ok: true };
 }
 
 // ─── Boutique de skins ────────────────────────────────────────────────────────
@@ -336,4 +355,4 @@ async function setBalance(id, balance) {
   await pool.query("UPDATE users SET balance = $1 WHERE id = $2", [Math.max(0, balance), id]);
 }
 
-module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin };
+module.exports = { pool, initDb, getUser, getUserByName, createUser, setBalance, bonusStatus, claimBonus, addHistory, getHistory, friendRequest, friendRespond, friendRemove, friendList, areFriends, friendLeaderboard, rescueStatus, claimRescue, shopState, buySkin, equipSkin, addSuggestion };
