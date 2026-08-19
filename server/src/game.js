@@ -100,6 +100,19 @@ class Room {
     // En partie : le siège reste (la manche continue), le joueur est marqué parti
     this.players[me].connected = false;
     this.pushFeed(`🚪 ${name} quitte la partie`);
+
+    // S'il devait couper, on ne bloque pas la table 45 secondes pour rien
+    if (this.phase === "cutting" && me === this.cutterIdx) {
+      const repl = this.connectedCutter();
+      if (repl !== -1) {
+        this.cutterIdx = repl;
+        this.deadline = Date.now() + T.CUT;
+        this.pushFeed(`✂️ ${this.players[repl].name} reprend la coupe`);
+      } else {
+        this.pushFeed(`✂️ Personne pour couper — coupe automatique`);
+        this.cutDeck(null, 5 + Math.floor(Math.random() * 31), true);
+      }
+    }
     return { ok: true, removed: false, empty: false };
   }
 
@@ -150,6 +163,20 @@ class Room {
     this.revealAt = null;
     this.phase = "cutting";
     this.deadline = Date.now() + T.CUT;
+
+    // Un coupeur qui a quitté la table ne fait pas attendre tout le monde
+    if (!this.players[this.cutterIdx]?.connected) {
+      const repl = this.connectedCutter();
+      if (repl !== -1) {
+        this.pushFeed(`✂️ ${this.players[this.cutterIdx].name} est absent — ${this.players[repl].name} coupe à sa place`);
+        this.cutterIdx = repl;
+      } else {
+        // Plus aucun coupeur possible : coupe automatique, on enchaîne direct
+        this.pushFeed(`✂️ Personne pour couper — coupe automatique`);
+        return this.cutDeck(null, 5 + Math.floor(Math.random() * 31), true);
+      }
+    }
+
     this.pushFeed(`✂️ ${this.players[this.cutterIdx].name} doit couper le paquet`);
     return { ok: true };
   }
@@ -177,12 +204,26 @@ class Room {
     return { ok: true };
   }
 
-  /** Prochain coupeur : rotation en sautant la banque */
+  /** Prochain coupeur : rotation en sautant la banque et les joueurs partis */
   advanceCutter() {
+    for (let k = 1; k <= this.n(); k++) {
+      const i = (this.cutterIdx + k) % this.n();
+      if (i !== this.bankIdx && this.players[i].connected) { this.cutterIdx = i; return; }
+    }
+    // Personne de connecté hors banque : rotation simple (la coupe auto prendra le relais)
     for (let k = 1; k <= this.n(); k++) {
       const i = (this.cutterIdx + k) % this.n();
       if (i !== this.bankIdx) { this.cutterIdx = i; return; }
     }
+  }
+
+  /** Premier coupeur connecté à partir du coupeur actuel (banque exclue) */
+  connectedCutter() {
+    for (let k = 0; k < this.n(); k++) {
+      const i = (this.cutterIdx + k) % this.n();
+      if (i !== this.bankIdx && this.players[i].connected) return i;
+    }
+    return -1;
   }
 
   dealOrder() {
