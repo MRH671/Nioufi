@@ -152,7 +152,7 @@ export const CARD_THEMES: Record<string, CardTheme> = {
     border: "#00602b", accent: "rgba(0,0,0,.22)",
   },
   "cards-gitan": {
-    bg: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 20'%3E%3Crect width='30' height='10' fill='%230072CE'/%3E%3Crect y='10' width='30' height='10' fill='%23009A44'/%3E%3Cg stroke='%23D40000' fill='none'%3E%3Ccircle cx='15' cy='10' r='5.4' stroke-width='1.1'/%3E%3Cg stroke-width='.75'%3E%3Cpath d='M15 4.6V15.4M9.6 10h10.8M11.2 6.2l7.6 7.6M18.8 6.2l-7.6 7.6M13 4.98l4 10.04M17 4.98l-4 10.04M9.98 8l10.04 4M9.98 12l10.04-4'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='15' cy='10' r='1.1' fill='%23D40000'/%3E%3C/svg%3E\") center/100% 100% no-repeat",
+    bg: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 26'%3E%3Crect width='18' height='13' fill='%230072CE'/%3E%3Crect y='13' width='18' height='13' fill='%23009A44'/%3E%3Cg stroke='%23D40000' fill='none'%3E%3Ccircle cx='9' cy='13' r='6.2' stroke-width='1.2'/%3E%3Cg stroke-width='.7'%3E%3Cpath d='M15.2 13H2.8M14.73 15.37 3.27 10.63M13.38 17.38 4.62 8.62M11.37 18.73 6.63 7.27M9 19.2V6.8M6.63 18.73 11.37 7.27M4.62 17.38 13.38 8.62M3.27 15.37 14.73 10.63'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='9' cy='13' r='1.15' fill='%23D40000'/%3E%3C/svg%3E\") center/100% 100% no-repeat",
     border: "#00417a", accent: "rgba(0,0,0,.22)",
   },
 };

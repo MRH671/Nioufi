@@ -58,17 +58,17 @@ export default function ShopModal({ api, token, onBalance, onEquipped, onClose }
         className="w-full max-w-[420px] rounded-2xl p-5 border border-gold/40 max-h-[85vh] flex flex-col"
         style={{ background: "radial-gradient(ellipse at 50% 0%, #1e3324 0%, #0c1810 90%)" }}>
 
-        <div className="flex items-start justify-between mb-1">
+        <div className="flex shrink-0 items-start justify-between mb-1">
           <div className="font-display text-gold text-[22px]">🛍 Boutique</div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-300/90 font-bold text-[14px]">{data?.balance ?? "..."} 🪙</span>
             <button onClick={onClose} className="text-white/40 text-xl leading-none px-1">×</button>
           </div>
         </div>
-        <div className="text-emerald-400/80 text-[12px] mb-3">Échange tes jetons contre du style. Chacun voit la table avec son propre thème.</div>
+        <div className="shrink-0 text-emerald-400/80 text-[12px] mb-3">Échange tes jetons contre du style. Chacun voit la table avec son propre thème.</div>
 
         {/* Onglets */}
-        <div className="flex rounded-xl overflow-hidden border border-gold/25 mb-3">
+        <div className="flex shrink-0 rounded-xl overflow-hidden border border-gold/25 mb-3">
           {(["table", "cards"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2 text-[13px] font-bold ${tab === t ? "bg-gold text-[#241d05]" : "bg-black/30 text-gold"}`}>
