@@ -98,7 +98,8 @@ const SKINS = [
   { code: "cards-ru",    type: "cards", name: "Russie",    price: 500 },
   { code: "cards-it",    type: "cards", name: "Italie",    price: 500 },
   { code: "cards-sn",    type: "cards", name: "Sénégal",   price: 500 },
-  { code: "cards-cd",    type: "cards", name: "Congo",     price: 500 },
+  { code: "cards-cd",    type: "cards", name: "RD Congo",  price: 500 },
+  { code: "cards-cg",    type: "cards", name: "Congo",     price: 500 },
   { code: "cards-gitan", type: "cards", name: "Gitan",     price: 500 },
 ];
 const skinByCode = (code) => SKINS.find((s) => s.code === code);

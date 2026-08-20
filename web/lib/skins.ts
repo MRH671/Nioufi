@@ -153,6 +153,10 @@ export const CARD_THEMES: Record<string, CardTheme> = {
     emblem: { char: "★", color: "#F7D618" },
     border: "#004a94", accent: "rgba(0,0,0,.18)",
   },
+  "cards-cg": {
+    bg: "linear-gradient(115deg,#009543 0 40%,#FBDE4A 40% 60%,#DC241F 60%)",
+    border: "#00602b", accent: "rgba(0,0,0,.18)",
+  },
   "cards-gitan": {
     bg: "linear-gradient(180deg,#0072CE 0 50%,#009A44 50%)",
     emblem: { char: "☸", color: "#D40000" },
