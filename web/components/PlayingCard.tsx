@@ -63,17 +63,24 @@ export default function PlayingCard({
           position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
           borderRadius: 6,
           border: peekable ? "1px solid rgba(232,201,106,.85)" : `1px solid ${bk.border}`,
-          background: `repeating-linear-gradient(45deg,${bk.c1} 0 6px,${bk.c2} 6px 12px)`,
+          background: bk.bg || `repeating-linear-gradient(45deg,${bk.c1} 0 6px,${bk.c2} 6px 12px)`,
           boxShadow: peekable ? "0 0 8px rgba(232,201,106,.5)" : "0 2px 6px rgba(0,0,0,.45)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <div style={{
-            width: "70%", height: "78%", borderRadius: 4,
-            border: "1.5px solid rgba(240,220,170,.55)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(240,220,170,.75)", fontFamily: "Georgia,serif",
-            fontSize: w * 0.28, fontStyle: "italic",
-          }}>N</div>
+          {bk.emblem ? (
+            <span style={{
+              fontSize: w * 0.48, lineHeight: 1, color: bk.emblem.color,
+              textShadow: "0 1px 2px rgba(0,0,0,.35)",
+            }}>{bk.emblem.char}</span>
+          ) : (
+            <div style={{
+              width: "70%", height: "78%", borderRadius: 4,
+              border: `1.5px solid ${bk.bg ? bk.accent : "rgba(240,220,170,.55)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: bk.bg ? "transparent" : "rgba(240,220,170,.75)", fontFamily: "Georgia,serif",
+              fontSize: w * 0.28, fontStyle: "italic",
+            }}>{bk.bg ? "" : "N"}</div>
+          )}
         </div>
       </div>
     </div>

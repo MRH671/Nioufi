@@ -144,10 +144,12 @@ export default function ShopModal({ api, token, onBalance, onEquipped, onClose }
                       <div key={i} className="w-7 h-10 rounded-[4px] border flex items-center justify-center"
                         style={{
                           borderColor: ct.border,
-                          background: `repeating-linear-gradient(45deg, ${ct.c1} 0 4px, ${ct.c2} 4px 8px)`,
+                          background: ct.bg || `repeating-linear-gradient(45deg, ${ct.c1} 0 4px, ${ct.c2} 4px 8px)`,
                           transform: `rotate(${(i - 1) * 8}deg)`,
                         }}>
-                        <span style={{ color: ct.accent, fontFamily: "Georgia,serif", fontSize: 9, fontStyle: "italic" }}>N</span>
+                        {ct.emblem
+                          ? <span style={{ color: ct.emblem.color, fontSize: 13, lineHeight: 1 }}>{ct.emblem.char}</span>
+                          : !ct.bg && <span style={{ color: ct.accent, fontFamily: "Georgia,serif", fontSize: 9, fontStyle: "italic" }}>N</span>}
                       </div>
                     ))}
                   </div>

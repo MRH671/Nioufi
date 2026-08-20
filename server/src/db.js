@@ -87,6 +87,19 @@ const SKINS = [
   { code: "cards-emeraude",type: "cards", name: "Émeraude",        price: 800 },
   { code: "cards-or",      type: "cards", name: "Or",              price: 800 },
   { code: "cards-onyx",    type: "cards", name: "Onyx",            price: 1500 },
+  // Collection drapeaux
+  { code: "cards-fr",    type: "cards", name: "France",    price: 500 },
+  { code: "cards-es",    type: "cards", name: "Espagne",   price: 500 },
+  { code: "cards-dz",    type: "cards", name: "Algérie",   price: 500 },
+  { code: "cards-ma",    type: "cards", name: "Maroc",     price: 500 },
+  { code: "cards-tn",    type: "cards", name: "Tunisie",   price: 500 },
+  { code: "cards-al",    type: "cards", name: "Albanie",   price: 500 },
+  { code: "cards-rs",    type: "cards", name: "Serbie",    price: 500 },
+  { code: "cards-ru",    type: "cards", name: "Russie",    price: 500 },
+  { code: "cards-it",    type: "cards", name: "Italie",    price: 500 },
+  { code: "cards-sn",    type: "cards", name: "Sénégal",   price: 500 },
+  { code: "cards-cd",    type: "cards", name: "Congo",     price: 500 },
+  { code: "cards-gitan", type: "cards", name: "Gitan",     price: 500 },
 ];
 const skinByCode = (code) => SKINS.find((s) => s.code === code);
 
