@@ -102,65 +102,58 @@ export const CARD_THEMES: Record<string, CardTheme> = {
   "cards-emeraude": { c1: "#1f6b45", c2: "#288d58", border: "#164f32", accent: "rgba(190,240,210,.6)" },
   "cards-or":       { c1: "#8a6a1a", c2: "#a8842a", border: "#6b5010", accent: "rgba(255,240,200,.7)" },
   "cards-onyx":     { c1: "#1e1e22", c2: "#2c2c32", border: "#101014", accent: "rgba(232,201,106,.65)" },
-  // ── Collection drapeaux ──
+  // ── Collection drapeaux (images officielles) ──
   "cards-fr": {
-    bg: "linear-gradient(90deg,#002395 0 33.4%,#f5f5f5 33.4% 66.7%,#ED2939 66.7%)",
-    border: "#1a1a2e", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/fr.png') center/100% 100% no-repeat",
+    border: "#1a1a2e", accent: "rgba(0,0,0,.22)",
   },
   "cards-es": {
-    bg: "linear-gradient(180deg,#AA151B 0 25%,#F1BF00 25% 75%,#AA151B 75%)",
-    border: "#6b0d11", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/es.png') center/100% 100% no-repeat",
+    border: "#6b0d11", accent: "rgba(0,0,0,.22)",
   },
   "cards-dz": {
-    bg: "linear-gradient(90deg,#006233 0 50%,#f5f5f5 50%)",
-    emblem: { char: "☪", color: "#D21034" },
-    border: "#00401f", accent: "rgba(0,0,0,.15)",
+    bg: "url('https://flagcdn.com/w160/dz.png') center/100% 100% no-repeat",
+    border: "#00401f", accent: "rgba(0,0,0,.22)",
   },
   "cards-ma": {
-    bg: "#C1272D",
-    emblem: { char: "★", color: "#006233" },
-    border: "#7a1519", accent: "rgba(0,0,0,.2)",
+    bg: "url('https://flagcdn.com/w160/ma.png') center/100% 100% no-repeat",
+    border: "#7a1519", accent: "rgba(0,0,0,.22)",
   },
   "cards-tn": {
-    bg: "radial-gradient(circle at 50% 50%, #f5f5f5 0 32%, #E70013 33%)",
-    emblem: { char: "☪", color: "#E70013" },
-    border: "#96000d", accent: "rgba(0,0,0,.15)",
+    bg: "url('https://flagcdn.com/w160/tn.png') center/100% 100% no-repeat",
+    border: "#96000d", accent: "rgba(0,0,0,.22)",
   },
   "cards-al": {
-    bg: "#E41E20",
-    emblem: { char: "🦅", color: "#1a1a1a" },
-    border: "#8f1012", accent: "rgba(0,0,0,.25)",
+    bg: "url('https://flagcdn.com/w160/al.png') center/100% 100% no-repeat",
+    border: "#8f1012", accent: "rgba(0,0,0,.22)",
   },
   "cards-rs": {
-    bg: "linear-gradient(180deg,#C6363C 0 33.4%,#0C4076 33.4% 66.7%,#f5f5f5 66.7%)",
-    border: "#08284a", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/rs.png') center/100% 100% no-repeat",
+    border: "#08284a", accent: "rgba(0,0,0,.22)",
   },
   "cards-ru": {
-    bg: "linear-gradient(180deg,#f5f5f5 0 33.4%,#0039A6 33.4% 66.7%,#D52B1E 66.7%)",
-    border: "#00246b", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/ru.png') center/100% 100% no-repeat",
+    border: "#00246b", accent: "rgba(0,0,0,.22)",
   },
   "cards-it": {
-    bg: "linear-gradient(90deg,#008C45 0 33.4%,#F4F5F0 33.4% 66.7%,#CD212A 66.7%)",
-    border: "#00542a", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/it.png') center/100% 100% no-repeat",
+    border: "#00542a", accent: "rgba(0,0,0,.22)",
   },
   "cards-sn": {
-    bg: "linear-gradient(90deg,#00853F 0 33.4%,#FDEF42 33.4% 66.7%,#E31B23 66.7%)",
-    emblem: { char: "★", color: "#00853F" },
-    border: "#005226", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/sn.png') center/100% 100% no-repeat",
+    border: "#005226", accent: "rgba(0,0,0,.22)",
   },
   "cards-cd": {
-    bg: "linear-gradient(115deg,#007FFF 0 36%,#F7D618 36% 43%,#CE1021 43% 57%,#F7D618 57% 64%,#007FFF 64%)",
-    emblem: { char: "★", color: "#F7D618" },
-    border: "#004a94", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/cd.png') center/100% 100% no-repeat",
+    border: "#004a94", accent: "rgba(0,0,0,.22)",
   },
   "cards-cg": {
-    bg: "linear-gradient(115deg,#009543 0 40%,#FBDE4A 40% 60%,#DC241F 60%)",
-    border: "#00602b", accent: "rgba(0,0,0,.18)",
+    bg: "url('https://flagcdn.com/w160/cg.png') center/100% 100% no-repeat",
+    border: "#00602b", accent: "rgba(0,0,0,.22)",
   },
   "cards-gitan": {
-    bg: "linear-gradient(180deg,#0072CE 0 50%,#009A44 50%)",
-    emblem: { char: "☸", color: "#D40000" },
-    border: "#00417a", accent: "rgba(255,255,255,.25)",
+    bg: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 20'%3E%3Crect width='30' height='10' fill='%230072CE'/%3E%3Crect y='10' width='30' height='10' fill='%23009A44'/%3E%3Cg stroke='%23D40000' fill='none'%3E%3Ccircle cx='15' cy='10' r='5.4' stroke-width='1.1'/%3E%3Cg stroke-width='.75'%3E%3Cpath d='M15 4.6V15.4M9.6 10h10.8M11.2 6.2l7.6 7.6M18.8 6.2l-7.6 7.6M13 4.98l4 10.04M17 4.98l-4 10.04M9.98 8l10.04 4M9.98 12l10.04-4'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='15' cy='10' r='1.1' fill='%23D40000'/%3E%3C/svg%3E\") center/100% 100% no-repeat",
+    border: "#00417a", accent: "rgba(0,0,0,.22)",
   },
 };
 
