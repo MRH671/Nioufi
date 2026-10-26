@@ -43,11 +43,14 @@ nioufi/
 │       ├── index.js     Serveur, rooms, diffusion d'état filtré par joueur
 │       ├── auth.js      Inscription / connexion / bonus / historique (JWT)
 │       └── db.js        PostgreSQL : users, history, bonus quotidien
-└── web/             Next.js 14 (App Router) + TypeScript + Tailwind
-    ├── app/             Accueil, lobby, authentification
-    ├── components/      Table de jeu, cartes, modals (bonus, historique, tutoriel)
-    └── lib/             Client Socket.io, sons WebAudio, types
+├── web/             Next.js 14 (App Router) + TypeScript + Tailwind
+│   ├── app/             Accueil, lobby, authentification
+│   ├── components/      Table de jeu, cartes, modals (bonus, historique, tutoriel)
+│   └── lib/             Client Socket.io, sons WebAudio, types
+└── mobile/          Appli iOS + Android (React Native / Expo) — voir mobile/README.md
 ```
+
+Le site et l'appli se branchent sur le même serveur : mêmes comptes, mêmes soldes, et un joueur sur l'appli peut s'asseoir à la même table qu'un joueur sur le site.
 
 **Le principe clé : le serveur est l'unique source de vérité.** Chaque joueur reçoit une version de l'état filtrée selon ses droits — les cartes qu'il n'a pas le droit de voir sont remplacées par `null` avant l'envoi. Inspecter le trafic réseau ne révèle rien.
 
@@ -89,10 +92,12 @@ Chaque push sur `main` redéploie automatiquement les deux services.
 
 ## 🗺️ Roadmap
 
-- [ ] Thèmes de tables
-- [ ] Classement des joueurs
-- [ ] Recharge de secours à 0 jeton
-- [ ] Application mobile (React Native — le serveur Socket.io se réutilise tel quel)
+- [x] Thèmes de tables et dos de cartes (boutique de skins)
+- [x] Classement entre amis
+- [x] Recharge de secours à 0 jeton
+- [x] Application mobile iOS + Android (React Native / Expo)
+- [ ] Publication App Store / Play Store
+- [ ] Pubs récompensées et achats intégrés (jetons toujours virtuels)
 
 ## 👤 Auteur
 
