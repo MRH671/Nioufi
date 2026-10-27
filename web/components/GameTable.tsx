@@ -75,15 +75,15 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
   useEffect(() => {
     if (game.phase !== "revealing" || !game.revealAt) { setRevealStep(-1); return; }
     const stepDur = 1500;
-    const compute = () => Math.min(Math.floor((Date.now() - game.revealAt!) / stepDur), n);
+    const compute = () => Math.min(Math.floor((Date.now() - game.revealAt!) / stepDur), total);
     setRevealStep(compute());
     const iv = setInterval(() => {
       const s = compute();
       setRevealStep(s);
-      if (s >= n) clearInterval(iv);
+      if (s >= total) clearInterval(iv);
     }, 200);
     return () => clearInterval(iv);
-  }, [game.phase, game.revealAt, n]);
+  }, [game.phase, game.revealAt, total]);
 
   // Nettoyage des peeks quand on change de phase
   useEffect(() => { setPeeked({}); }, [game.phase]);
@@ -102,7 +102,7 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
   useEffect(() => { if (ceremonyStep >= 0) sfxDeal(); }, [ceremonyStep]);
 
   // Retournement : un flip par étape de révélation
-  useEffect(() => { if (game.phase === "revealing" && revealStep > 0 && revealStep <= n) sfxFlip(); }, [revealStep, game.phase, n]);
+  useEffect(() => { if (game.phase === "revealing" && revealStep > 0 && revealStep <= total) sfxFlip(); }, [revealStep, game.phase, total]);
 
   // Mise posée
   const prevBets = useRef(0);
@@ -115,14 +115,14 @@ export default function GameTable({ game, skins, onLeave, onSuggest }: { game: G
   const playedResult = useRef(false);
   useEffect(() => {
     if (game.phase !== "revealing") { playedResult.current = false; return; }
-    if (!playedResult.current && revealStep >= n && game.results) {
+    if (!playedResult.current && revealStep >= total && game.results) {
       playedResult.current = true;
       const mine = game.results[myIdx];
       if (mine?.score === 9) sfxNioufi();
       else if (mine?.role === "bank" ? mine.delta >= 0 : mine?.win) sfxWin();
       else sfxLose();
     }
-  }, [revealStep, game.phase, game.results, myIdx, n]);
+  }, [revealStep, game.phase, game.results, myIdx, total]);
 
   const showToast = (msg: string) => {
     setToast(msg);
